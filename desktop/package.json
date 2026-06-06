@@ -1,0 +1,58 @@
+{
+  "name": "neige-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "pack:dir": "electron-builder --dir",
+    "pack:portable": "electron-builder --win portable",
+    "tauri": "tauri"
+  },
+  "build": {
+    "appId": "com.neige.cabinet",
+    "productName": "\u5185\u9601",
+    "electronDist": "node_modules/electron/dist",
+    "electronVersion": "33.4.11",
+    "directories": {
+      "output": "../dist-desktop"
+    },
+    "files": [
+      "main.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend",
+        "to": "backend"
+      },
+      {
+        "from": "../\u5185\u9601-ai-app/dist",
+        "to": "\u5185\u9601-ai-app/dist"
+      },
+      {
+        "from": "../launch.py",
+        "to": "launch.py"
+      },
+      {
+        "from": "../requirements.txt",
+        "to": "requirements.txt"
+      },
+      {
+        "from": "../.env.example",
+        "to": ".env.example"
+      }
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        "portable"
+      ]
+    }
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
+    "electron": "^33.4.11",
+    "electron-builder": "^26.8.1"
+  }
+}

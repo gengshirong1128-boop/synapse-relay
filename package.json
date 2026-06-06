@@ -1,0 +1,14 @@
+﻿{
+  "name": "court-council",
+  "private": true,
+  "scripts": {
+    "desktop": "npm start --prefix desktop",
+    "desktop:pack:dir": "npm run pack:dir --prefix desktop",
+    "desktop:pack:portable": "npm run pack:portable --prefix desktop",
+    "desktop:pack:zip": "python scripts/package_desktop_zip.py",
+    "test:council": "python scripts/test_council.py",
+    "test:council:unit": "python -m unittest backend.tests.test_council_core",
+    "test:backend": "python -m unittest discover backend.tests",
+    "validate": "python scripts/validate_all.py"
+  }
+}

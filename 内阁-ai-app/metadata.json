@@ -1,0 +1,6 @@
+{
+  "name": "内阁 AI",
+  "description": "基于大语言模型智能体的拟真会议与全局决策系统，提供新内阁遴选、军机集议、群臣廷议、圣裁定案以及联合国模式下的技术与伦理审议。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

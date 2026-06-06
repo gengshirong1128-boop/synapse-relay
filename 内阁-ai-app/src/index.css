@@ -1,0 +1,186 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "SimSun", "STSong", "Songti SC", "Noto Serif CJK SC", "STZhongsong", Georgia, Garamond, serif;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.75rem;
+  
+  --color-stone-950: #0d0d0d;
+  --color-stone-900: #171717;
+  --color-stone-800: #212121;
+  --color-stone-700: #2f2f2f;
+  --color-stone-600: #3a3a3a;
+  --color-stone-500: #565656;
+  --color-stone-400: #8e8e93;
+  --color-stone-300: #b4b4b4;
+  --color-stone-200: #ececec;
+  --color-stone-100: #ffffff;
+  
+  --color-amber-600: #d97706;
+  --color-amber-500: #f59e0b;
+  --color-amber-400: #fbbf24;
+  --color-amber-300: #fde68a;
+  --color-amber-200: #fef3c7;
+  --color-amber-100: #fffbeb;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #0d0d0d;
+  color: #ececec;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbars matching ChatGPT */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #3a3a3a;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #565656;
+}
+
+@keyframes enter-room {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.agent-enter {
+  animation: enter-room 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Smooth custom glow animation */
+@keyframes soft-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: .85;
+    transform: scale(0.98);
+  }
+}
+
+.animate-pulse-slow {
+  animation: soft-pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Font scaling via CSS variable */
+.app-scaled {
+  font-size: var(--app-font-size, 14px);
+}
+.app-scaled button,
+.app-scaled input,
+.app-scaled textarea,
+.app-scaled select,
+.app-scaled h1,
+.app-scaled h2,
+.app-scaled h3,
+.app-scaled h4,
+.app-scaled p,
+.app-scaled label,
+.app-scaled th,
+.app-scaled td,
+.app-scaled li,
+.app-scaled a {
+  font-size: inherit;
+}
+/* Tiny badges stay compact */
+.app-scaled .text-\[8px\],
+.app-scaled .text-\[9px\],
+.app-scaled .text-\[10px\] {
+  font-size: 10px;
+}
+
+/* 古代奏折卷轴展开的动态过渡效果 (Imperial Scroll Unfolding Effect) */
+@keyframes scrollUnfold {
+  0% {
+    clip-path: inset(0 50% 0 50%);
+    transform: scaleX(0.94);
+    opacity: 0.1;
+  }
+  40% {
+    opacity: 0.8;
+  }
+  100% {
+    clip-path: inset(0 0% 0 0%);
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+.animate-scroll-unfold {
+  animation: scrollUnfold 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  transform-origin: center;
+}
+
+@keyframes scrollHandleLeft {
+  0% {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  100% {
+    left: 0%;
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes scrollHandleRight {
+  0% {
+    right: 50%;
+    transform: translateX(50%);
+  }
+  100% {
+    right: 0%;
+    transform: translateX(50%);
+  }
+}
+
+.animate-scroll-handle-left {
+  animation: scrollHandleLeft 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-scroll-handle-right {
+  animation: scrollHandleRight 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+/* Traditional Ink-Wash Rice paper ink blend effect */
+.bg-rice-paper {
+  background-color: #f4ecd8;
+  background-image: 
+    radial-gradient(rgba(45, 27, 16, 0.02) 1px, transparent 0),
+    radial-gradient(rgba(45, 27, 16, 0.01) 2px, transparent 0);
+  background-size: 24px 24px, 48px 48px;
+}
+
+.bg-rice-paper-dark {
+  background-color: #12100e;
+  background-image: 
+    radial-gradient(rgba(244, 236, 216, 0.02) 1px, transparent 0);
+  background-size: 32px 32px;
+}
+
