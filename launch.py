@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import socket
 import subprocess
@@ -11,6 +12,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 VENV_PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
 REACT_FRONTEND = ROOT / "内阁-ai-app"
+RUNTIME_STATE = Path.home() / ".agent-relay"
+REQUIREMENT_IMPORTS = ("fastapi", "uvicorn", "pydantic", "httpx")
 
 
 def port_in_use(host: str, port: int) -> bool:
@@ -36,7 +39,24 @@ def ensure_requirements(python_bin: str) -> None:
     req = ROOT / "requirements.txt"
     if not req.exists():
         return
-    subprocess.run([python_bin, "-m", "pip", "install", "-r", str(req)], cwd=str(ROOT), check=False, shell=False)
+    fingerprint = hashlib.sha256(
+        req.read_bytes() + python_bin.encode("utf-8") + sys.version.encode("utf-8")
+    ).hexdigest()
+    marker = RUNTIME_STATE / "requirements.sha256"
+    import_check = subprocess.run(
+        [python_bin, "-c", f"import {', '.join(REQUIREMENT_IMPORTS)}"],
+        cwd=str(ROOT),
+        capture_output=True,
+        timeout=15,
+        check=False,
+        shell=False,
+    )
+    imports_ready = import_check.returncode == 0
+    if imports_ready and marker.exists() and marker.read_text(encoding="utf-8").strip() == fingerprint:
+        return
+    subprocess.run([python_bin, "-m", "pip", "install", "-r", str(req)], cwd=str(ROOT), check=True, shell=False)
+    RUNTIME_STATE.mkdir(parents=True, exist_ok=True)
+    marker.write_text(fingerprint, encoding="utf-8")
 
 
 def ensure_react_frontend() -> None:

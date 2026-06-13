@@ -15,6 +15,17 @@ def read(p: Path) -> str:
 
 
 def main() -> None:
+    react_index = ROOT / '内阁-ai-app' / 'dist' / 'index.html'
+    react_app = ROOT / '内阁-ai-app' / 'src' / 'App.tsx'
+    if react_index.exists() and react_app.exists():
+        app = read(react_app)
+        for text in ['Agent Relay', '本地 Agent 协作调度器', '允许读取', '允许修改', '监工建议']:
+            assert_true(text in app, f'missing Agent Relay UI text: {text}')
+        for path in ['/orchestration/agents', '/orchestration/plans', '/supervisor-prompt', '/advice']:
+            assert_true(path in app, f'missing orchestration API path: {path}')
+        print('Validation passed: Agent Relay minimal UI checks are working.')
+        return
+
     html = ROOT / 'frontend' / 'index.html'
     js = ROOT / 'frontend' / 'app.js'
     css = ROOT / 'frontend' / 'style.css'

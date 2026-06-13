@@ -807,6 +807,36 @@ class ExecutorRunResult(BaseModel):
     confirmation_hint: str | None = None
 
 
+class CollaborationTaskCreate(BaseModel):
+    task_id: str
+    agent_id: str
+    title: str
+    instructions: str = ""
+    read_paths: list[str] = Field(default_factory=list)
+    write_paths: list[str] = Field(default_factory=list)
+    depends_on: list[str] = Field(default_factory=list)
+
+
+class CollaborationPlanCreateRequest(BaseModel):
+    project_path: str
+    goal: str
+    supervisor_agent_id: str | None = None
+    tasks: list[CollaborationTaskCreate] = Field(min_length=1)
+
+
+class CollaborationTaskStartRequest(BaseModel):
+    confirm: bool = False
+
+
+class CollaborationSupervisorStartRequest(BaseModel):
+    confirm: bool = False
+
+
+class CollaborationAdviceRequest(BaseModel):
+    content: str
+    target_task_ids: list[str] = Field(default_factory=list)
+
+
 class ProjectFile(BaseModel):
     path: str
     relative_path: str

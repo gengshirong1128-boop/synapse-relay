@@ -98,6 +98,23 @@ async function proxyBackendGet(pathname: string, res: express.Response) {
   }
 }
 
+async function proxyBackendRequest(req: express.Request, res: express.Response) {
+  const backendBase = (process.env.CABINET_BACKEND_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+  try {
+    const response = await fetch(`${backendBase}${req.originalUrl}`, {
+      method: req.method,
+      headers: { 'Content-Type': 'application/json' },
+      body: ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body || {}),
+    });
+    const text = await response.text();
+    res.status(response.status).type(response.headers.get('content-type') || 'application/json').send(text);
+  } catch (error: any) {
+    res.status(503).json({ ok: false, error: error?.message || 'Backend unavailable' });
+  }
+}
+
+app.use('/orchestration', proxyBackendRequest);
+
 app.get('/api/ccswitch/providers', async (_req, res) => {
   await proxyBackendGet('/api/ccswitch/providers', res);
 });

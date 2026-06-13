@@ -54,6 +54,13 @@ DETECT_TARGETS = [
         "config_dir": ".gemini",
         "capabilities": ["chat", "code"],
     },
+    {
+        "id": "cli.opencode",
+        "name": "OpenCode",
+        "command": "opencode",
+        "config_dir": ".config/opencode",
+        "capabilities": ["chat", "code", "review"],
+    },
 ]
 
 SEARCH_ROOTS = [

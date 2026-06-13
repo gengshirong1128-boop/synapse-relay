@@ -1,7 +1,7 @@
 {
-  "name": "neige-desktop",
-  "version": "0.1.0",
-  "description": "Local-first multi-AI collaboration desktop app",
+  "name": "agent-relay-desktop",
+  "version": "0.2.0",
+  "description": "Local agent collaboration scheduler with declared read/write boundaries",
   "author": "Synapse Relay Maintainers",
   "private": true,
   "main": "main.cjs",
@@ -12,8 +12,8 @@
     "tauri": "tauri"
   },
   "build": {
-    "appId": "com.neige.cabinet",
-    "productName": "\u5185\u9601",
+    "appId": "com.synapse.agentrelay",
+    "productName": "Agent Relay",
     "electronVersion": "42.4.0",
     "directories": {
       "output": "../dist-desktop"

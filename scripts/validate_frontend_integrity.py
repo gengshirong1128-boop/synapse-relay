@@ -19,11 +19,19 @@ def main() -> None:
     react_src = ROOT / '内阁-ai-app' / 'src'
     if react_index.exists() and react_src.exists():
         src_text = '\n'.join(read(path) for path in react_src.rglob('*.tsx'))
-        assert_true('Settings' in src_text, 'React Settings component missing')
-        assert_true('/app-settings' in src_text, 'React app settings backend sync missing')
-        assert_true('fontSize' in src_text, 'React font size setting missing')
-        assert_true('onSetTheme' in src_text, 'React theme setting missing')
-        print('Validation passed: React frontend integrity checks are working.')
+        required = [
+            '/orchestration/agents',
+            '/orchestration/plans',
+            'read_paths',
+            'write_paths',
+            'supervisor_agent_id',
+            '生成无冲突执行计划',
+        ]
+        for item in required:
+            assert_true(item in src_text, f'React orchestration UI missing: {item}')
+        assert_true(not (react_src / 'components' / 'ImageStudio.tsx').exists(), 'obsolete ImageStudio remains')
+        assert_true(not (react_src / 'components' / 'CabinetMeeting.tsx').exists(), 'obsolete CabinetMeeting remains')
+        print('Validation passed: Agent Relay frontend integrity checks are working.')
         return
 
     index_html = ROOT / 'frontend' / 'index.html'

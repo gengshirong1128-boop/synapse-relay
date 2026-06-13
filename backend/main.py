@@ -53,6 +53,7 @@ from backend.core.token_meter import estimate_cost, estimate_payload_tokens
 from backend.core.executors import ClaudeCodeExporter, CodexExporter, GenericExporter
 from backend.core.executors.runner import check_executor, run_executor
 from backend.core.executors.runner import build_confirmation_token, run_store
+from backend.core.collaboration import collaboration_store
 from backend.schemas import (
     ActiveAgentRequest,
     AddAgentInstanceToRoomRequest,
@@ -109,6 +110,10 @@ from backend.schemas import (
     WorkModeRequest,
     ImperialReviewRequest,
     RoomSettingsPatchRequest,
+    CollaborationPlanCreateRequest,
+    CollaborationTaskStartRequest,
+    CollaborationSupervisorStartRequest,
+    CollaborationAdviceRequest,
 )
 from backend.core.provider_profiles import provider_profile_store
 from backend.core.provider_detection import detect_cli_tools, local_tool_config, test_local_tool
@@ -2088,6 +2093,85 @@ def executor_runs_get(run_id: str):
     if run is None:
         raise HTTPException(status_code=404, detail=f"Unknown run_id: {run_id}")
     return run
+
+
+@app.get("/orchestration/agents")
+def orchestration_agents():
+    agents = detect_cli_tools()
+    launchable_ids = {"cli.codex", "cli.claude_code", "cli.gemini", "cli.opencode"}
+    return {
+        "agents": agents,
+        "callable_agents": [
+            item
+            for item in agents
+            if item.get("status") == "callable" and item.get("id") in launchable_ids
+        ],
+    }
+
+
+@app.post("/orchestration/plans")
+def orchestration_plan_create(request: CollaborationPlanCreateRequest):
+    try:
+        return collaboration_store.create(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/orchestration/plans")
+def orchestration_plans_list():
+    return {"plans": collaboration_store.list()}
+
+
+@app.get("/orchestration/plans/{plan_id}")
+def orchestration_plan_get(plan_id: str):
+    try:
+        return collaboration_store.get(plan_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/orchestration/plans/{plan_id}/tasks/{task_id}/prompt")
+def orchestration_task_prompt(plan_id: str, task_id: str):
+    try:
+        return {"prompt": collaboration_store.task_prompt(plan_id, task_id)}
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/orchestration/plans/{plan_id}/tasks/{task_id}/start")
+def orchestration_task_start(plan_id: str, task_id: str, request: CollaborationTaskStartRequest):
+    try:
+        return collaboration_store.start_task(plan_id, task_id, request.confirm)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/orchestration/plans/{plan_id}/supervisor-prompt")
+def orchestration_supervisor_prompt(plan_id: str):
+    try:
+        return {"prompt": collaboration_store.supervisor_prompt(plan_id)}
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/orchestration/plans/{plan_id}/supervisor/start")
+def orchestration_supervisor_start(plan_id: str, request: CollaborationSupervisorStartRequest):
+    try:
+        return collaboration_store.start_supervisor(plan_id, request.confirm)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/orchestration/plans/{plan_id}/advice")
+def orchestration_advice(plan_id: str, request: CollaborationAdviceRequest):
+    try:
+        return collaboration_store.add_advice(plan_id, request.content, request.target_task_ids)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.get("/context/{room_id}/usage")
