@@ -1,8 +1,5 @@
 name: Route Reasoning Skill
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 on:
   push:
     paths:
@@ -20,7 +17,7 @@ jobs:
       run:
         working-directory: route-reasoning-skill
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"

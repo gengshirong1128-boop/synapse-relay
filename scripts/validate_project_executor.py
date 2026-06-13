@@ -38,8 +38,11 @@ def main() -> None:
 
     # 3) noisy dirs ignored in file tree output
     file_tree = tree_json.get("file_tree", [])
-    lowered_tree = [item.lower() for item in file_tree]
-    assert_true(all(".git\\" not in item and "node_modules\\" not in item and "__pycache__\\" not in item for item in lowered_tree), "ignored dirs leaked into file tree")
+    lowered_tree = [item.lower().replace("\\", "/") for item in file_tree]
+    assert_true(
+        all(".git/" not in item and "node_modules/" not in item and "__pycache__/" not in item for item in lowered_tree),
+        "ignored dirs leaked into file tree",
+    )
 
     # 4) relevant file retrieval
     relevant_resp = client.post(

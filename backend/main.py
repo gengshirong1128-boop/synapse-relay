@@ -1197,6 +1197,10 @@ def room_project_attach(room_id: str, request: RoomProjectAttachRequest):
     if context is None:
         question = request.question or room.title
         context = build_project_context(request.project_id, question, request.selected_paths)
+    if not context.relevant_files:
+        # Selected paths can be stale or use a different platform separator.
+        # Fall back to relevance scoring so a handoff never silently loses all project context.
+        context = build_project_context(request.project_id, request.question or room.title, None)
 
     room.attached_project_id = index.project_id
     room.attached_project_name = index.project_name
