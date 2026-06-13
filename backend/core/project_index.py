@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -15,7 +15,7 @@ class ProjectIndexStore:
 
     def scan(self, project_path: str, max_file_size_bytes: int) -> ProjectIndex:
         files, ignored_files, ignored_dirs, warnings = scan_project_files(project_path, max_file_size_bytes)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         project_path_obj = Path(project_path).resolve()
         project_id = str(uuid4())
         index = ProjectIndex(

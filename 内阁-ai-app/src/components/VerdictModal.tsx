@@ -37,6 +37,8 @@ export const VerdictModal: React.FC<VerdictModalProps> = ({
   const [selectedPlanId, setSelectedPlanId] = useState<string>('alpha');
   const [selectedAgentId, setSelectedAgentId] = useState<string>('trae');
   const [error, setError] = useState<string | null>(null);
+  const [launchNote, setLaunchNote] = useState<string | null>(null);
+  const [promulgating, setPromulgating] = useState(false);
 
   // Derive source AIs for mock realism if plans are loaded
   const getSourceForPlan = (id: string): string => {
@@ -50,12 +52,17 @@ export const VerdictModal: React.FC<VerdictModalProps> = ({
       try {
         setLoading(true);
         setError(null);
+        let apiConfigs: any[] = [];
+        try {
+          const saved = localStorage.getItem('cabinet_api_configs');
+          if (saved) apiConfigs = JSON.parse(saved);
+        } catch { apiConfigs = []; }
         const response = await fetch('/api/finalize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages, contextTitle })
+          body: JSON.stringify({ messages, contextTitle, apiConfigs })
         });
-        
+
         if (!response.ok) {
           throw new Error('Failed to formulate drafts.');
         }
@@ -71,29 +78,23 @@ export const VerdictModal: React.FC<VerdictModalProps> = ({
         setPlans([
           {
             id: 'alpha',
-            title: visualMode === 'cabinet' ? '首脑折中安民案 (Balanced Compromise Plan)' : '首脑折中安民案',
-            badge: '折中案',
-            description: visualMode === 'cabinet' 
-              ? '允许商贾包办部分榷用运输，官民六四分成，不施重税以抚民生；同时设立北关盐粮司，彻查基层官吏贪墨中饱。'
-              : '允许商贾包办部分榷用运输，官民六四分成；同时设立监察分司，彻查贪墨中饱。',
+            title: '稳健折中方案',
+            badge: '折中',
+            description: '综合各方意见，优先低风险、可快速落地的步骤，分阶段推进。',
             icon: 'psychology'
           },
           {
             id: 'beta',
-            title: visualMode === 'cabinet' ? '雷霆专营重惩案 (Directive State Monopoly)' : '雷霆专营重惩案',
-            badge: '专营重惩案',
-            description: visualMode === 'cabinet'
-              ? '全面禁止私人涉足盐铁。兵部抽调三营巡防精兵锁死北境粮道，刑部在边关设重典法庭，私贩罪首枭首，包庇劣绅抄家。'
-              : '全面禁止私人涉足盐铁。兵部抽调精兵锁死粮道，刑部在边关设重典法庭，私贩枭首，包庇抄家。',
+            title: '重点突破方案',
+            badge: '激进',
+            description: '集中资源解决核心矛盾，先攻最关键环节，接受更高风险换取速度。',
             icon: 'policy'
           },
           {
             id: 'gamma',
-            title: visualMode === 'cabinet' ? '互市通衢化边案 (Market Liberalization & Defense)' : '互市通衢化边案',
-            badge: '互市通商案',
-            description: visualMode === 'cabinet'
-              ? '撤销过境重税，敕令北境与外邦直接互市，由皇室特许商会承销官盐。引渠灌溉改善牧地，化堵为疏让私盐无利可图。'
-              : '撤销过境重税，敕令北境与外邦直接互市，由皇室特许商会承销官盐。化堵为疏让私盐无利可图。',
+            title: '开放协作方案',
+            badge: '开放',
+            description: '引入外部资源与协作，以更长周期换取更可持续的结果。',
             icon: 'public'
           }
         ]);
@@ -105,12 +106,60 @@ export const VerdictModal: React.FC<VerdictModalProps> = ({
     fetchPlans();
   }, [messages, contextTitle, visualMode]);
 
-  const handlePromulgate = () => {
+  const handlePromulgate = async () => {
     const activePlan = plans.find(p => p.id === selectedPlanId);
     const activeAgent = EXECUTION_AGENTS.find(a => a.id === selectedAgentId);
-    if (activePlan && activeAgent) {
-      onSubmitVerdict(activePlan, activeAgent.name);
+    if (!activePlan || !activeAgent) return;
+    setPromulgating(true);
+    setLaunchNote(null);
+
+    // 1. 组装可直接喂给本地 agent 的结论文本
+    const conclusion =
+      `# 任务交接：${contextTitle || '会话决定'}\n\n` +
+      `## 采纳方案：${activePlan.title}\n` +
+      `${activePlan.description}\n\n` +
+      `## 执行要求\n` +
+      `请基于以上结论在当前项目中落地实现：编码、自测、并说明改动点。\n`;
+
+    // 2. 复制到剪贴板（失败不阻断后续）
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(conclusion);
+      copied = true;
+    } catch {
+      copied = false;
     }
+
+    // 3. 尝试打开对应的本地 agent 应用
+    let launchMsg = '';
+    try {
+      const resp = await fetch('/api/local-agent/launch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: activeAgent.id }),
+      });
+      const data = await resp.json();
+      if (data.ok && data.launched) {
+        launchMsg = `已打开 ${data.name || activeAgent.name}`;
+      } else if (data.launchable === false) {
+        launchMsg = `${activeAgent.name} 需手动启动（非本地应用）`;
+      } else if (data.installed === false) {
+        launchMsg = data.message || `${activeAgent.name} 未安装`;
+      } else {
+        launchMsg = data.message || `${activeAgent.name} 启动未成功`;
+      }
+    } catch {
+      launchMsg = '无法连接后端，未能自动打开应用';
+    }
+
+    setLaunchNote(
+      `${copied ? '✓ 结论已复制到剪贴板' : '⚠️ 复制剪贴板失败，请手动复制'}。${launchMsg}。` +
+      `请在该应用中粘贴并自行提交执行。`
+    );
+
+    // 4. 记录决定到会话
+    onSubmitVerdict(activePlan, activeAgent.name);
+    setPromulgating(false);
   };
 
   const activePlanDetails = plans.find(p => p.id === selectedPlanId);
@@ -127,10 +176,10 @@ export const VerdictModal: React.FC<VerdictModalProps> = ({
             </div>
             <div>
               <h2 className="text-sm font-bold tracking-wider text-stone-100 uppercase font-display">
-                {visualMode === 'cabinet' ? '🏛️ 圣裁定案：起草敕令与交办执行' : '🏛️ 圣裁定案：起草敕令与交办执行'}
+                {visualMode === 'cabinet' ? '🏛️ 圣裁定案：起草敕令与交办执行' : '✅ 定案：生成方案并交办执行'}
               </h2>
               <p className="text-[10px] text-stone-400 mt-0.5">
-                {visualMode === 'cabinet' ? '提炼群臣廷争要旨，确立乾坤终局大计，指定专属 Agent 落实承办' : '提炼群臣廷争要旨，确立乾坤终局大计，指定专属 Agent 落实承办'}
+                {visualMode === 'cabinet' ? '提炼群臣廷争要旨，确立乾坤终局大计，指定专属 Agent 落实承办' : '综合各成员讨论要点，确定最终方案，并指定执行 Agent'}
               </p>
             </div>
           </div>
@@ -149,7 +198,7 @@ export const VerdictModal: React.FC<VerdictModalProps> = ({
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             <div className="pb-2 border-b border-stone-800">
               <h3 className="text-xs font-bold text-amber-500 uppercase tracking-widest font-mono">
-                {visualMode === 'cabinet' ? '1. 候选敕令草案' : '1. Candidate Plans'}
+                {visualMode === 'cabinet' ? '1. 候选敕令草案' : '1. 候选方案'}
               </h3>
             </div>
 
@@ -193,7 +242,7 @@ export const VerdictModal: React.FC<VerdictModalProps> = ({
                       </p>
 
                       <div className="mt-3.5 pt-2 border-t border-stone-800/60 flex justify-between items-center text-[10px] text-stone-500 pl-6.5 font-mono">
-                        <span>{visualMode === 'cabinet' ? '奏折来源 AI' : '奏折来源 AI'}: <strong className="text-stone-300 font-semibold">{getSourceForPlan(plan.id)}</strong></span>
+                        <span>{visualMode === 'cabinet' ? '奏折来源 AI' : '方案来源 AI'}: <strong className="text-stone-300 font-semibold">{getSourceForPlan(plan.id)}</strong></span>
                       </div>
                     </div>
                   );
@@ -260,19 +309,25 @@ export const VerdictModal: React.FC<VerdictModalProps> = ({
             <div className="mt-6 pt-4 border-t border-stone-800/80">
               <button
                 onClick={handlePromulgate}
-                disabled={loading || plans.length === 0}
+                disabled={loading || plans.length === 0 || promulgating}
                 className={`w-full py-3 rounded-xl text-xs font-bold tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg text-stone-950 ${
-                  !loading && plans.length > 0 
-                    ? 'bg-amber-600 hover:bg-amber-500 cursor-pointer hover:scale-[1.02] active:scale-[0.98]' 
+                  !loading && plans.length > 0 && !promulgating
+                    ? 'bg-amber-600 hover:bg-amber-500 cursor-pointer hover:scale-[1.02] active:scale-[0.98]'
                     : 'bg-stone-800 text-stone-500 cursor-not-allowed'
                 }`}
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
-                <span>{visualMode === 'cabinet' ? '发旨：命内阁交办执行' : '发旨：命内阁交办执行'}</span>
+                <span>{promulgating
+                  ? '正在复制结论并打开应用…'
+                  : (visualMode === 'cabinet' ? '发旨：命内阁交办执行' : '确定：复制结论并打开执行应用')}</span>
               </button>
-              <p className="text-[10px] text-stone-500 text-center mt-2 font-mono">
-                {visualMode === 'cabinet' ? '✓ 此旨意将汇入廷议总案并触发自动集成流程' : '✓ 此旨意将汇入廷议总案并触发自动集成流程'}
-              </p>
+              {launchNote ? (
+                <p className="text-[10px] text-amber-400 text-center mt-2 font-mono leading-relaxed">{launchNote}</p>
+              ) : (
+                <p className="text-[10px] text-stone-500 text-center mt-2 font-mono">
+                  {visualMode === 'cabinet' ? '✓ 此旨意将汇入廷议总案并触发自动集成流程' : '✓ 将复制结论到剪贴板并打开所选本地应用，提交由你自行完成'}
+                </p>
+              )}
             </div>
 
           </div>

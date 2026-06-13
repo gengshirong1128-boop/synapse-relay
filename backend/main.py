@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import json
@@ -35,6 +35,7 @@ from backend.core.chatroom import (
 from backend.core.context_manager import context_manager
 from backend.core.context_builder import build_project_context, select_relevant_files
 from backend.core.credentials import credential_store
+from backend.core.ccswitch_store import sync_ccswitch_providers, test_ccswitch_provider
 from backend.core.app_targets import app_target_store, check_app_target, export_app_target, preview_app_target
 from backend.core.debate import (
     build_final_answer,
@@ -1098,7 +1099,7 @@ def position_custom(request: PositionCustomCreateRequest):
 @app.post("/room/create")
 def room_create(request: RoomCreateRequest):
     room = room_store.create_default_room(request)
-    create_system_message(room, f"???{room.title}??????? AI?{room.members[0].display_name or room.members[0].name}?")
+    create_system_message(room, f"会审「{room.title}」已创建，当前主持 AI：{room.members[0].display_name or room.members[0].name}。")
     context_manager.refresh_room(room)
     room_store.save(room)
     return build_room_envelope(room, latest_messages=room.messages[-1:])
@@ -1108,59 +1109,59 @@ def room_create(request: RoomCreateRequest):
 def demo_create_room():
     room = room_store.create_default_room(
         RoomCreateRequest(
-            title="????",
+            title="演示会审",
             owner_user="User",
-            host_agent=AgentConfig(name="Mock Claude ?????", provider="mock", role=AgentRole.HOST.value),
+            host_agent=AgentConfig(name="Mock Claude 主持", provider="mock", role=AgentRole.HOST.value),
         )
     )
 
     demo_instances = [
         AgentInstanceCreateRequest(
             agent_id="demo_creative_gpt",
-            display_name="Mock GPT ?????",
+            display_name="Mock GPT 创意",
             provider="mock",
             model="mock-gpt",
             credential_id="mock_default",
             role=AgentRole.EXPERT,
             position_id="creative_strategist",
             position_name="Creative Strategist",
-            persona="?????????????????",
+            persona="负责创意发散与策略构想。",
             context_limit_tokens=32000,
         ),
         AgentInstanceCreateRequest(
             agent_id="demo_implementer_deepseek",
-            display_name="Mock DeepSeek ?????",
+            display_name="Mock DeepSeek 实现",
             provider="mock",
             model="mock-deepseek",
             credential_id="mock_default",
             role=AgentRole.EXPERT,
             position_id="code_implementer",
             position_name="Code Implementer",
-            persona="??????????????????????",
+            persona="负责将方案拆解为可执行的代码实现步骤。",
             context_limit_tokens=32000,
         ),
         AgentInstanceCreateRequest(
             agent_id="demo_reviewer_deepseek",
-            display_name="Mock DeepSeek ?????",
+            display_name="Mock DeepSeek 审查",
             provider="mock",
             model="mock-deepseek",
             credential_id="mock_default",
             role=AgentRole.EXPERT,
             position_id="skeptic_reviewer",
             position_name="Skeptic Reviewer",
-            persona="?????????????????",
+            persona="负责挑错质疑与风险审查。",
             context_limit_tokens=32000,
         ),
         AgentInstanceCreateRequest(
             agent_id="demo_executor_codex",
-            display_name="Mock Codex ?????",
+            display_name="Mock Codex 执行",
             provider="mock",
             model="mock-codex",
             credential_id="mock_default",
             role=AgentRole.EXECUTOR,
             position_id="executor_liaison",
             position_name="Executor Liaison",
-            persona="???????????? Codex/Claude Code ????",
+            persona="负责对接本地 Codex/Claude Code 执行交付。",
             context_limit_tokens=32000,
         ),
     ]
@@ -1169,7 +1170,7 @@ def demo_create_room():
         instance = _ensure_agent_instance(request)
         add_agent_instance_to_room(room, instance)
 
-    create_system_message(room, "????????????????????????????????")
+    create_system_message(room, "演示会审已就绪，已加入主持与多位演示大臣。")
     context_manager.refresh_room(room)
     room_store.save(room)
     return build_room_envelope(room, latest_messages=room.messages[-1:])
@@ -1352,7 +1353,7 @@ def room_message_imperial_review(room_id: str, message_id: str, request: Imperia
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     system_message = create_system_message(
         room,
-        f"Imperial review applied: {'鍑嗗' if request.type == 'approve' else '椹冲洖'} on {target.sender_id}.",
+        f"Imperial review applied: {'准奏' if request.type == 'approve' else '驳回'} on {target.sender_id}.",
         metadata={"review_type": request.type, "message_id": message_id},
     )
     room_store.save(room)
@@ -1720,172 +1721,278 @@ def export_claude_code(request: ExecutorExportRequest):
 
 @app.post("/api/debate")
 def api_debate(payload: dict):
-    """Adapter: frontend debate request → council_service opinions → ChatMessage format."""
-    import uuid
+    """Adapter: frontend debate request → council_service opinions → ChatMessage format.
 
-    mode = payload.get("mode", "cabinet")
-    query = payload.get("query", "")
+    Ministers are built directly from the frontend roster so that user selections,
+    custom members, and per-member skills are all honored verbatim (no fragile id mapping).
+    """
+    import uuid
+    from backend.core.council_models import Minister
+
+    mode = payload.get("mode", "modern")
+    query = str(payload.get("query") or "").strip()
     selected_members = payload.get("selectedMembers", []) or []
     api_configs = payload.get("apiConfigs", []) or []
     project_brief = payload.get("projectBrief", "")
     project_handoff = payload.get("projectHandoff", "")
-    cc_switch_config = next(
-        (item for item in api_configs if str(item.get("id", "")).lower() == "ccswitch"),
-        None,
-    )
-    if cc_switch_config:
-        endpoint = str(cc_switch_config.get("endpoint") or "http://127.0.0.1:15721/v1").rstrip("/")
-        model = str(cc_switch_config.get("model") or "gpt-5.5")
-        provider_profile_store.patch(
-            "ccswitch_default_profile",
-            ProviderProfilePatchRequest(base_url=endpoint, default_model=model, models=[model]),
-        )
+    if not query:
+        raise HTTPException(status_code=400, detail="query is required")
+    if (
+        not isinstance(selected_members, list)
+        or not selected_members
+        or not all(isinstance(item, dict) for item in selected_members)
+    ):
+        raise HTTPException(status_code=400, detail="at least one selected member is required")
+    if not isinstance(api_configs, list) or not all(isinstance(item, dict) for item in api_configs):
+        raise HTTPException(status_code=400, detail="apiConfigs must be a list")
+
+    # Wire each frontend apiConfig (provider endpoint/model/key) into the matching
+    # backend default profile + runtime credential, so members reach real models
+    # using the keys the user typed in Settings — no env vars required.
+    provider_to_profile = {
+        "openai": "openai_default_profile",
+        "claude": "claude_default_profile",
+        "anthropic": "claude_default_profile",
+        "deepseek": "deepseek_default_profile",
+        "gemini": "gemini_default_profile",
+        "qwen": "qwen_default_profile",
+        "openrouter": "openrouter_default_profile",
+        "newapi": "newapi_default_profile",
+        "ccswitch": "ccswitch_default_profile",
+    }
+    configured_profiles: set[str] = set()
+    for cfg in api_configs:
+        cfg_id = str(cfg.get("id", "")).lower()
+        profile_id = provider_to_profile.get(cfg_id)
+        if not profile_id:
+            continue
+        endpoint = str(cfg.get("endpoint") or "").strip().rstrip("/")
+        model = str(cfg.get("model") or "").strip()
+        api_key = str(cfg.get("apiKey") or "").strip()
+        patch_kwargs: dict = {}
+        if endpoint:
+            patch_kwargs["base_url"] = endpoint
+        if model:
+            patch_kwargs["default_model"] = model
+            patch_kwargs["models"] = [model]
+        try:
+            profile = provider_profile_store.get(profile_id)
+            if patch_kwargs:
+                profile = provider_profile_store.patch(profile_id, ProviderProfilePatchRequest(**patch_kwargs))
+            if api_key:
+                credential_store.set_runtime_key(profile.credential_id, api_key, profile.auth_env_name or None)
+                configured_profiles.add(profile_id)
+            elif cfg_id == "ccswitch":
+                configured_profiles.add(profile_id)
+            elif credential_store.get(profile.credential_id).key_available:
+                configured_profiles.add(profile_id)
+        except (KeyError, ValueError):
+            continue
 
     # Build a conversation from members, run council, convert to messages
     conv_id = f"_debate_{uuid.uuid4().hex[:8]}"
     content = query
     if project_brief:
-        content = f"【项目上下文】\n{project_brief}\n\n{project_handoff}\n\n【圣谕】\n{query}"
+        content = f"【项目背景】\n{project_brief}\n\n{project_handoff}\n\n【议题】\n{query}"
 
-    # Map frontend member ids to minister ids
-    frontend_to_minister = {
-        "model-chatgpt": "chief",
-        "model-claude": "hanlin",
-        "model-deepseek": "gongbu",
-        "model-gemini": "libu",
-        "model-qwen": "censorate",
-        "tool-codex": "silijian",
-    }
-
-    selected_ids = []
-    skill_contexts = []
-    profile_by_minister_id = {}
-    for m in selected_members:
-        mid = frontend_to_minister.get(m.get("id", ""))
-        if mid:
-            selected_ids.append(mid)
-            api_profile_id = str(m.get("apiProfileId") or "")
-            if not api_profile_id and cc_switch_config:
-                api_profile_id = "ccswitch_default_profile"
-            if api_profile_id:
-                profile_by_minister_id[mid] = api_profile_id
-        else:
-            # Custom/dynamic member: use its id directly as minister id
-            custom_id = m.get("id", "")
-            if custom_id:
-                selected_ids.append(custom_id)
-        # Append skill context for each member
-        skill_prompt = m.get("skillPrompt", "")
-        minister_name = m.get("name", "") or m.get("nickname", "")
-        skill_id = m.get("skillId", "")
+    def _build_system_prompt(member: dict) -> str:
+        name = str(member.get("name") or member.get("nickname") or "成员")
+        skill_prompt = str(member.get("skillPrompt") or "").strip()
+        is_chief = member.get("role") == "pm"
+        lines = [f"你是「{name}」，多 AI 协作讨论中的一位成员。"]
+        if is_chief:
+            lines.append("你是召集人，负责统筹议题、协调其他成员、并形成最终可执行结论。")
         if skill_prompt:
-            skill_contexts.append(f"【{minister_name} 职责 · {skill_id}】\n{skill_prompt}")
-    if not selected_ids:
-        selected_ids = ["chief", "hanlin", "gongbu", "censorate"]
+            lines.append(skill_prompt)
+        else:
+            lines.append("请基于自身职责给出专业意见。")
+        lines.append("请用简明、专业的现代中文作答，内容要具体、务实、可执行，不要空话套话。")
+        lines.append("只代表你自己发言，针对当前议题给出意见。")
+        return "\n".join(lines)
 
-    # Append skill contexts to content
-    if skill_contexts:
-        content = content + "\n\n" + "\n\n".join(skill_contexts)
+
+
+    # Build ministers directly from the frontend roster.
+    ministers: list[Minister] = []
+    real_by_id: dict[str, bool] = {}
+    member_by_id: dict[str, dict] = {}
+    for idx, m in enumerate(selected_members):
+        mid = str(m.get("id") or f"member_{idx}")
+        member_by_id[mid] = m
+        name = str(m.get("name") or m.get("nickname") or "成员")
+        provider_id = str(m.get("providerId") or "").lower()
+        api_profile_id = str(m.get("apiProfileId") or "")
+
+        # Resolve which backend profile this member should use:
+        # explicit apiProfileId wins; otherwise map by providerId if that provider is configured.
+        if not api_profile_id and provider_id in provider_to_profile:
+            mapped_profile = provider_to_profile[provider_id]
+            if mapped_profile in configured_profiles:
+                api_profile_id = mapped_profile
+
+        provider_name = "mock"
+        model_name = ""
+        is_real = False
+        if api_profile_id.startswith("webai:"):
+            provider_name = "webai"
+            model_name = api_profile_id.split(":", 1)[1]
+            is_real = True
+        elif api_profile_id and api_profile_id != "mock_default_profile":
+            # Resolve provider_name from the actual profile so we call the real API
+            try:
+                prof = provider_profile_store.get(api_profile_id)
+                provider_name = prof.provider
+                model_name = model_name or prof.default_model
+                is_real = True
+            except KeyError:
+                api_profile_id = "mock_default_profile"
+        real_by_id[mid] = is_real
+        ministers.append(
+            Minister(
+                id=mid,
+                title=name,
+                displayName=name,
+                office=str(m.get("ministry") or "none"),
+                duty=str(m.get("badge") or ""),
+                capabilityTags=[],
+                provider=provider_name,
+                model=model_name,
+                apiProfileId=api_profile_id or "mock_default_profile",
+                systemPrompt=_build_system_prompt(m),
+                enabled=True,
+                isChief=(m.get("role") == "pm"),
+                order=idx,
+            )
+        )
+
+    ministers = ministers[:6]
+    # Guarantee exactly one chief after applying the participant cap.
+    chief_index = next((idx for idx, item in enumerate(ministers) if item.isChief), 0)
+    for idx, item in enumerate(ministers):
+        item.isChief = idx == chief_index
 
     try:
-        conversation = council_service.get_conversation(conv_id)
-        for minister in conversation.ministers:
-            if minister.id in profile_by_minister_id:
-                minister.apiProfileId = profile_by_minister_id[minister.id]
-                if minister.apiProfileId.startswith("webai:"):
-                    minister.provider = "webai"
-                    minister.model = minister.apiProfileId.split(":", 1)[1]
-
         def resolver(minister):
             return _provider_for_profile_id(getattr(minister, "apiProfileId", ""))
 
-        result = council_service.submit_memorial({
-            "conversationId": conv_id,
-            "content": content,
-            "discussionMode": "council",
-            "selectedMinisterIds": selected_ids[:5],
-        }, provider=provider_registry.get("mock"), provider_resolver=resolver)
+        result = council_service.submit_memorial(
+            {"conversationId": conv_id, "content": content, "discussionMode": mode},
+            provider=provider_registry.get("mock"),
+            provider_resolver=resolver,
+            explicit_ministers=ministers,
+        )
         opinions = result.get("opinions", [])
 
-        # Map minister ids back to frontend member ids
-        minister_to_frontend = {v: k for k, v in frontend_to_minister.items()}
-        # Minister title lookup
-        minister_titles = {
-            "chief": "首辅大臣",
-            "hanlin": "翰林学士",
-            "gongbu": "工部尚书",
-            "libu": "礼部尚书",
-            "censorate": "都察院御史",
-            "silijian": "司礼监",
-        }
-
+        any_demo = False
         messages = []
         for op in opinions:
             mid = op.get("ministerId", "")
-            frontend_id = minister_to_frontend.get(mid)
-            sender_name = minister_titles.get(mid, "阁臣")
+            member = member_by_id.get(mid, {})
+            sender_name = str(member.get("name") or member.get("nickname") or "阁臣")
+            op_content = op.get("content", "")
+            if not real_by_id.get(mid, False):
+                any_demo = True
+                op_content = f"（演示数据 · 该成员未接入真实模型）\n{op_content}"
             messages.append({
                 "id": f"msg_{uuid.uuid4().hex[:8]}",
-                "ministerId": frontend_id or "model-claude",
-                "sender": f"{sender_name}",
-                "content": op.get("content", ""),
+                "ministerId": mid,
+                "sender": sender_name,
+                "content": op_content,
                 "isUser": False,
-                "roleLabel": "内阁",
+                "roleLabel": str(member.get("badge") or "内阁"),
+                "status": op.get("status", "done"),
             })
 
-        return {"messages": messages}
-    except Exception:
-        # Fallback: return mock messages so UI doesn't break
-        return {
-            "messages": [
-                {
-                    "id": f"msg_{uuid.uuid4().hex[:8]}",
-                    "ministerId": "model-claude",
-                    "sender": "首辅大臣",
-                    "content": "臣以为，此事需从长计议。当前朝局安稳，不宜草率决策。请陛下明察，允臣等再议一轮。",
-                    "isUser": False,
-                    "roleLabel": "内阁",
-                },
-                {
-                    "id": f"msg_{uuid.uuid4().hex[:8]}",
-                    "ministerId": "model-deepseek",
-                    "sender": "工部尚书",
-                    "content": "陛下，臣附议首辅。然工程之事宜速不宜迟，请允臣部先行勘察，以备后议。",
-                    "isUser": False,
-                    "roleLabel": "六部",
-                },
-            ],
-        }
+        return {"messages": messages, "demoMode": any_demo}
+    except Exception as exc:  # noqa: BLE001
+        # Surface the real error instead of faking a council reply.
+        raise HTTPException(status_code=500, detail=f"debate_failed: {exc}") from exc
+
 
 
 @app.post("/api/finalize")
 def api_finalize(payload: dict):
-    """Adapter: return draft plans from debate messages."""
-    context_title = payload.get("contextTitle", "廷议")
+    """Synthesize 3 candidate plans from the discussion transcript.
+
+    Uses the召集人/first configured real provider when available; otherwise returns
+    neutral demo placeholders clearly marked as such (no fake hardcoded content).
+    """
+    context_title = str(payload.get("contextTitle") or "讨论")
+    messages = payload.get("messages", []) or []
+    api_configs = payload.get("apiConfigs", []) or []
+
+    transcript = "\n".join(
+        f"{m.get('sender', '成员')}: {m.get('content', '')}"
+        for m in messages
+        if not m.get("isUser") and m.get("content")
+    )[:6000]
+
+    provider_to_profile = {
+        "openai": "openai_default_profile", "claude": "claude_default_profile",
+        "anthropic": "claude_default_profile", "deepseek": "deepseek_default_profile",
+        "gemini": "gemini_default_profile", "qwen": "qwen_default_profile",
+        "openrouter": "openrouter_default_profile", "newapi": "newapi_default_profile",
+        "ccswitch": "ccswitch_default_profile",
+    }
+    # Find first configured provider with a usable key.
+    chosen_profile_id = ""
+    for cfg in api_configs:
+        cfg_id = str(cfg.get("id", "")).lower()
+        pid = provider_to_profile.get(cfg_id)
+        if not pid:
+            continue
+        try:
+            prof = provider_profile_store.get(pid)
+            if cfg_id == "ccswitch" or str(cfg.get("apiKey") or "").strip() or credential_store.get(prof.credential_id).key_available:
+                chosen_profile_id = pid
+                break
+        except KeyError:
+            continue
+
+    if chosen_profile_id and transcript:
+        try:
+            from backend.core.council_models import Minister
+            agent = _provider_for_profile_id(chosen_profile_id)
+            synth = Minister(
+                id="synthesizer", title="方案综合", displayName="方案综合",
+                office="none", duty="", capabilityTags=[],
+                apiProfileId=chosen_profile_id,
+                systemPrompt=(
+                    "你是讨论方案综合器。基于讨论记录，提炼 3 个互不相同、可执行的候选方案。"
+                    "严格输出 JSON 数组，每项含 id(alpha/beta/gamma)、title、badge、description、icon。"
+                    "icon 从 psychology/policy/public 中选。用简明现代中文。只输出 JSON。"
+                ),
+            )
+            if hasattr(agent, "_resolve_config"):
+                cfg = agent._resolve_config(synth)
+                raw = agent._request(
+                    messages=[
+                        {"role": "system", "content": synth.systemPrompt},
+                        {"role": "user", "content": f"议题：{context_title}\n讨论记录：\n{transcript}\n请输出 3 个候选方案的 JSON 数组。"},
+                    ],
+                    config=cfg, max_tokens=900,
+                )
+                import json as _json, re as _re
+                match = _re.search(r"\[.*\]", raw, _re.DOTALL)
+                if match:
+                    plans = _json.loads(match.group(0))
+                    if isinstance(plans, list) and plans:
+                        return {"plans": plans[:3]}
+        except Exception:  # noqa: BLE001
+            pass  # fall through to placeholders
+
+    # No real provider configured (or synthesis failed): neutral, clearly-marked placeholders.
+    note = "（演示占位 · 接入模型后将基于真实讨论生成）"
     return {
         "plans": [
-            {
-                "id": "alpha",
-                "title": "首脑折中安民案",
-                "badge": "折中案",
-                "description": "允许商贾包办部分榷用运输，官民六四分成，不施重税以抚民生；同时设立北关盐粮司，彻查基层官吏贪墨中饱。",
-                "icon": "psychology",
-            },
-            {
-                "id": "beta",
-                "title": "雷霆专营重惩案",
-                "badge": "专营重惩",
-                "description": "全面禁止私人涉足盐铁。兵部抽调三营巡防精兵锁死北境粮道，刑部在边关设重典法庭，私贩罪首枭首，包庇劣绅抄家。",
-                "icon": "policy",
-            },
-            {
-                "id": "gamma",
-                "title": "互市通衢化边案",
-                "badge": "互市通商",
-                "description": "撤销过境重税，敕令北境与外邦直接互市，由皇室特许商会承销官盐。引渠灌溉改善牧地，化堵为疏让私盐无利可图。",
-                "icon": "public",
-            },
+            {"id": "alpha", "title": "稳健折中方案", "badge": "折中",
+             "description": f"{note} 综合各方意见，优先低风险、可快速落地的步骤，分阶段推进。", "icon": "psychology"},
+            {"id": "beta", "title": "重点突破方案", "badge": "激进",
+             "description": f"{note} 集中资源解决核心矛盾，先攻最关键环节，接受更高风险换取速度。", "icon": "policy"},
+            {"id": "gamma", "title": "开放协作方案", "badge": "开放",
+             "description": f"{note} 引入外部资源与协作，以更长周期换取更可持续的结果。", "icon": "public"},
         ],
+        "demoMode": True,
     }
 
 
@@ -2250,7 +2357,7 @@ def runtime_check():
     cc_health = fetch_json(f"{cc_switch_base}/health")
     cc_status = fetch_json(f"{cc_switch_base}/status")
     status = cc_status.get("data", {}) if cc_status.get("ok") else {}
-    service_ok = bool(cc_health.get("ok") and cc_status.get("ok"))
+    service_ok = bool(cc_health.get("ok"))
     route_ready = bool(service_ok and status.get("current_provider_id") and not status.get("last_error"))
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
@@ -2272,6 +2379,24 @@ def runtime_check():
             "imageGeneration": {"ok": True, "endpoint": "/api/images/generate"},
         },
     }
+
+
+@app.get("/api/ccswitch/providers")
+def list_ccswitch_providers():
+    providers = sync_ccswitch_providers()
+    return {
+        "ok": True,
+        "providers": providers,
+        "count": len(providers),
+    }
+
+
+@app.post("/api/ccswitch/providers/{profile_id}/test")
+def test_saved_ccswitch_provider(profile_id: str):
+    try:
+        return test_ccswitch_provider(profile_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.post("/api/issues")
@@ -2387,52 +2512,79 @@ def test_ccswitch_route(payload: dict | None = None):
     base_url = str(payload.get("endpoint", "")).strip().rstrip("/") or os.getenv(
         "CCSWITCH_BASE_URL", "http://127.0.0.1:15721"
     ).rstrip("/")
-    responses_url = f"{base_url}/responses" if base_url.endswith("/v1") else f"{base_url}/v1/responses"
+    api_base_url = base_url if base_url.endswith("/v1") else f"{base_url}/v1"
+    responses_url = f"{api_base_url}/responses"
+    messages_url = f"{api_base_url}/messages"
     requested_model = str(payload.get("model", "")).strip()
-    models = list(dict.fromkeys(filter(None, [requested_model, "gpt-5.5", "gpt-5", "gpt-4o"])))
+    response_models = list(dict.fromkeys(filter(None, [requested_model, "gpt-5.5", "gpt-5", "gpt-4o"])))
+    message_models = list(dict.fromkeys(filter(None, [requested_model, "claude-sonnet-4-20250514", "claude-opus-4-7"])))
     api_key = str(payload.get("apiKey", "")).strip() or "cc-switch-local-routing"
     last_error = ""
     last_status_code = 0
+    response_attempt = (
+            "openai_responses",
+            responses_url,
+            response_models,
+            {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", "User-Agent": "codex-cli"},
+            lambda model: {
+                "model": model,
+                "input": [{"role": "user", "content": [{"type": "input_text", "text": "Reply only: OK"}]}],
+                "max_output_tokens": 8,
+            },
+        )
+    message_attempt = (
+        "anthropic_messages",
+        messages_url,
+        message_models,
+        {
+            "Authorization": f"Bearer {api_key}",
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        },
+        lambda model: {
+            "model": model,
+            "messages": [{"role": "user", "content": "Reply only: OK"}],
+            "max_tokens": 8,
+        },
+    )
+    attempts = [message_attempt, response_attempt] if not requested_model or requested_model.lower().startswith("claude") else [response_attempt, message_attempt]
     try:
-        with httpx.Client(timeout=30) as client:
-            for model in models:
-                response = client.post(
-                    responses_url,
-                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", "User-Agent": "codex-cli"},
-                    json={
-                        "model": model,
-                        "input": [{"role": "user", "content": [{"type": "input_text", "text": "Reply only: OK"}]}],
-                        "max_output_tokens": 8,
-                    },
-                )
-                last_status_code = response.status_code
-                if response.is_success:
-                    provider_profile_store.patch(
-                        "ccswitch_default_profile",
-                        ProviderProfilePatchRequest(base_url=base_url, default_model=model, models=models),
-                    )
-                    return {
-                        "ok": True,
-                        "routeReady": True,
-                        "statusCode": response.status_code,
-                        "workingModel": model,
-                        "message": f"CC Switch route is callable with {model}.",
-                        "url": responses_url,
-                    }
-                try:
-                    data = response.json()
-                    last_error = data.get("error", {}).get("message") if isinstance(data, dict) else response.text
-                except ValueError:
-                    last_error = response.text
+        with httpx.Client(timeout=25) as client:
+            for route_type, url, models, headers, make_body in attempts:
+                for model in models:
+                    response = client.post(url, headers=headers, json=make_body(model))
+                    last_status_code = response.status_code
+                    if response.is_success:
+                        working_model = model
+                        provider_profile_store.patch(
+                            "ccswitch_default_profile",
+                            ProviderProfilePatchRequest(base_url=api_base_url, default_model=working_model, models=[working_model]),
+                        )
+                        return {
+                            "ok": True,
+                            "routeReady": True,
+                            "routeType": route_type,
+                            "statusCode": response.status_code,
+                            "workingModel": working_model,
+                            "message": f"CC Switch {route_type} route is callable with {working_model}.",
+                            "url": url,
+                        }
+                    try:
+                        data = response.json()
+                        error = data.get("error", {}) if isinstance(data, dict) else {}
+                        last_error = error.get("message") if isinstance(error, dict) else str(error)
+                    except (ValueError, UnicodeError):
+                        last_error = response.text
     except httpx.HTTPError as exc:
-        return {"ok": False, "routeReady": False, "message": str(exc), "url": responses_url}
+        return {"ok": False, "routeReady": False, "message": str(exc), "url": api_base_url}
     return {
         "ok": False,
         "routeReady": False,
         "statusCode": last_status_code,
         "message": last_error or "No callable CC Switch model was found.",
-        "triedModels": models,
-        "url": responses_url,
+        "triedModels": list(dict.fromkeys(message_models + response_models)),
+        "url": api_base_url,
     }
 
 
@@ -2447,6 +2599,56 @@ def launch_ccswitch():
         raise HTTPException(status_code=404, detail="CC Switch executable was not found")
     subprocess.Popen([str(executable)], cwd=str(executable.parent), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     return {"ok": True, "launched": True, "path": str(executable)}
+
+
+@app.post("/api/local-agent/launch")
+def launch_local_agent(payload: dict):
+    """Open a locally-detected AI agent app/CLI so the user can paste the decision and submit themselves.
+
+    Security: the executable path is taken ONLY from the allow-listed detection results
+    (DETECT_TARGETS via get_local_tool). No shell, no user-supplied path or args.
+    """
+    from backend.core.provider_detection import get_local_tool
+
+    # Map VerdictModal execution-agent ids to detected local tool ids.
+    agent_to_tool = {
+        "codex": "cli.codex",
+        "claudecode": "cli.claude_code",
+        "trae": "cli.trae",
+        "workbuddy": "cli.workbuddy",
+        "cursor": "app.cursor",
+        "gemini": "cli.gemini",
+    }
+    agent_id = str(payload.get("agentId", "")).strip().lower()
+    tool_id = agent_to_tool.get(agent_id)
+    if not tool_id:
+        # Not a launchable local app (e.g. localscript/browserauto/custom) — caller handles fallback.
+        return {"ok": False, "launchable": False, "message": f"No launchable local app mapped for agent '{agent_id}'."}
+
+    try:
+        info = get_local_tool(tool_id)
+    except KeyError:
+        return {"ok": False, "launchable": False, "message": f"Unknown local tool for agent '{agent_id}'."}
+
+    exe_path = info.get("executablePath")
+    if not exe_path:
+        return {
+            "ok": False,
+            "launchable": True,
+            "installed": False,
+            "message": f"{info.get('name', agent_id)} 未安装或不在 PATH 中。请先安装后再试。",
+        }
+
+    try:
+        subprocess.Popen(
+            [exe_path],
+            cwd=str(Path(exe_path).parent),
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except OSError as exc:
+        return {"ok": False, "launchable": True, "installed": True, "message": f"启动失败：{exc}"}
+
+    return {"ok": True, "launched": True, "name": info.get("name", agent_id), "path": exe_path}
 
 
 @app.post("/api/provider/test")

@@ -364,27 +364,75 @@ export const FolderReader: React.FC<FolderReaderProps> = ({
   };
 
   // Feed project indices context directly to Active Session Shared Brief!
-  const handleInjectToSession = () => {
+  const isTextFile = (name: string): boolean => {
+    const lower = name.toLowerCase();
+    const known = ['dockerfile', 'makefile', '.gitignore', '.env', 'readme', 'license', '.editorconfig', '.prettierrc', '.eslintrc'];
+    if (known.some(k => lower === k || lower.startsWith(k))) return true;
+    return /\.(ts|tsx|js|jsx|mjs|cjs|json|jsonc|md|mdx|txt|css|scss|sass|less|html|htm|vue|svelte|py|rb|go|rs|java|kt|kts|c|h|cc|cpp|hpp|cs|php|swift|sh|bash|zsh|yml|yaml|toml|ini|cfg|conf|xml|sql|graphql|gql|prisma|proto|gradle|properties|r|lua|dart|ex|exs|clj|scala|vim)$/i.test(lower);
+  };
+
+  const handleInjectToSession = async () => {
     if (!projectAnalysis) return;
 
+    const MAX_FILE_BYTES = 64 * 1024;          // 单文件上限 64KB
+    const MAX_TOTAL_BYTES = 1.5 * 1024 * 1024; // 总量上限 1.5MB，避免撑爆上下文
+
     // Construct injection context brief
-    let filesPayload = `=== 本地工程项目数据索引上下文 ===\n`;
+    let filesPayload = `=== 本地工程项目上下文 ===\n`;
     filesPayload += `【项目名称】：${folderName}\n`;
     filesPayload += `【技术概要结构】：\n${projectAnalysis.architectureSummary}\n\n`;
 
     if (!sendOnlyOutline) {
-      // Gather files contents mockup indices
       const selectedList = Object.keys(selectedPaths).filter(k => selectedPaths[k]);
-      filesPayload += `【已加载核心源文件清单及摘要（共 ${selectedList.length} 项）】：\n`;
-      selectedList.forEach(p => {
-        filesPayload += `- 文件: ${p}\n  拟合状态: Ready to compile & inspect. Full telemetry linked to Codex.\n`;
+      // 建立「去掉根目录后的相对路径 → 真实 File 对象」映射
+      const fileByPath = new Map<string, any>();
+      (rawFiles as any[]).forEach(f => {
+        const rel = f.webkitRelativePath || f.name || '';
+        const stripped = rel.split('/').slice(1).join('/') || f.name || rel;
+        fileByPath.set(stripped, f);
       });
+
+      filesPayload += `【已加载核心源文件内容（共 ${selectedList.length} 项）】：\n`;
+      let totalBytes = 0;
+      let skipped = 0;
+      let loaded = 0;
+      for (const p of selectedList) {
+        const f = fileByPath.get(p);
+        const fileName = p.split('/').pop() || p;
+        if (!f || typeof f.text !== 'function') {
+          filesPayload += `\n----- 文件: ${p} -----\n（无法读取正文：拖拽上传暂不支持读取文件内容，请改用「选择文件夹」）\n`;
+          skipped++;
+          continue;
+        }
+        if (!isTextFile(fileName)) {
+          filesPayload += `\n----- 文件: ${p} -----\n（已跳过：二进制或非文本文件）\n`;
+          skipped++;
+          continue;
+        }
+        if (totalBytes >= MAX_TOTAL_BYTES) {
+          filesPayload += `\n（已达上下文总量上限 ${Math.round(MAX_TOTAL_BYTES / 1024)}KB，其余文件未读取）\n`;
+          break;
+        }
+        try {
+          let content = await f.text();
+          if (content.length > MAX_FILE_BYTES) {
+            content = content.slice(0, MAX_FILE_BYTES) + `\n…（文件过长已截断，仅取前 ${Math.round(MAX_FILE_BYTES / 1024)}KB）`;
+          }
+          totalBytes += content.length;
+          loaded++;
+          filesPayload += `\n----- 文件: ${p} -----\n${content}\n`;
+        } catch {
+          filesPayload += `\n----- 文件: ${p} -----\n（读取失败）\n`;
+          skipped++;
+        }
+      }
+      filesPayload += `\n【加载统计】：成功读取 ${loaded} 个文件，跳过 ${skipped} 个，合计约 ${Math.round(totalBytes / 1024)}KB。\n`;
     } else {
-      filesPayload += `【安全提醒】：根据您选定的“仅发送分析轮廓极其结构，不上传源码”隐私设置，以下仅提供分析元数据索引而未泄露核心文件源码。\n`;
+      filesPayload += `【隐私设置】：你已选择「仅发送分析轮廓与结构，不上传源码」，因此仅提供分析元数据，未包含文件正文。\n`;
     }
 
     onAddProjectContext(filesPayload, projectAnalysis.handoffPacket);
-    alert(`✓ 【上下文已成功装载到朝阁议事底】：\n\n项目: "${folderName}" 核心轮廓、技术栈细节及 Codex/DeepSeek 分步承办交接书已经全量合流至 Shared Brief 与 Handoff Packet 中！大臣们现在可以直接阅读到此项本地结构。`);
+    alert(`✓ 项目上下文已装入会话：\n\n"${folderName}" 的结构分析${sendOnlyOutline ? '' : '与选中文件的源码'}已合入共享上下文，成员在讨论时可直接读取。`);
   };
 
   // Render collapsible File Tree node recursively
@@ -475,7 +523,7 @@ export const FolderReader: React.FC<FolderReaderProps> = ({
             }`}
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>{visualMode === 'cabinet' ? '返回朝廷会商' : '返回朝廷会商'}</span>
+            <span>{visualMode === 'cabinet' ? '返回朝廷会商' : '返回会话'}</span>
           </button>
           
           <div>
@@ -735,7 +783,7 @@ export const FolderReader: React.FC<FolderReaderProps> = ({
                     className="px-6 py-2.5 bg-amber-600 hover:bg-amber-500 text-stone-950 font-black tracking-wider text-xs rounded-xl shadow-lg hover:scale-[1.01] transition-all cursor-pointer flex items-center gap-1.5"
                   >
                     <Sparkles className="w-3.5 h-3.5 stroke-[2.5]" />
-                    <span>装入廷议上下文 ➔</span>
+                    <span>装入会话上下文 ➔</span>
                   </button>
                 </div>
 

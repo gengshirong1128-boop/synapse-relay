@@ -20,10 +20,12 @@ interface CabinetMeetingProps {
   members: CabinetMember[];
   onSendMessage: (text: string, targetMember?: CabinetMember) => void;
   onSelfTrigger: (rounds?: number) => void;
+  onStopThinking: () => void;
   onOpenVerdict: () => void;
   onSwitchToColumns: () => void;
   onBack: () => void;
   onClear: () => void;
+  onOpenAutoDebate?: () => void;
   isGenerating: boolean;
   visualMode: 'cabinet' | 'un';
   theme?: 'light' | 'dark';
@@ -72,10 +74,12 @@ export const CabinetMeeting: React.FC<CabinetMeetingProps> = ({
   members,
   onSendMessage,
   onSelfTrigger,
+  onStopThinking,
   onOpenVerdict,
   onSwitchToColumns,
   onBack,
   onClear,
+  onOpenAutoDebate,
   isGenerating,
   visualMode,
   theme = 'dark',
@@ -300,7 +304,7 @@ export const CabinetMeeting: React.FC<CabinetMeetingProps> = ({
           <div className="flex flex-col h-full overflow-hidden w-full">
             <div className="flex items-center justify-between mb-4 pb-2 border-b border-stone-800/10 dark:border-stone-100/10">
               <h3 className="text-xs uppercase tracking-wider font-bold flex items-center gap-1.5">
-                <span>{visualMode === 'cabinet' ? (language === 'zh' ? '🏛️ 在列公卿' : '🏛️ Councillors') : (language === 'zh' ? '👥 参审阁臣' : '👥 Councillors')}</span>
+                <span>{visualMode === 'cabinet' ? (language === 'zh' ? '🏛️ 在列公卿' : '🏛️ Councillors') : (language === 'zh' ? '👥 参与成员' : '👥 Members')}</span>
                 <span className="bg-amber-600/15 text-amber-500 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
                   {activeMembers.length}
                 </span>
@@ -385,7 +389,7 @@ export const CabinetMeeting: React.FC<CabinetMeetingProps> = ({
               {visualMode === 'cabinet' ? (
                 <span>帝居深宫，可于殿前群臣奏呈之旁勾选为<b>「准奏」</b>或<b>「驳回」</b>。选定之后再面谕点击下方<b>「群臣廷议」</b>。</span>
               ) : (
-                <span>可在群臣奏呈之旁勾选为<b>「准奏」</b>或<b>「驳回」</b>。选定后点击下方<b>「群臣廷议」</b>汇总台鉴。</span>
+                <span>可在每条意见旁标记<b>「通过」</b>或<b>「驳回」</b>，然后点击下方<b>「继续讨论」</b>进入下一轮。</span>
               )}
             </div>
           </div>
@@ -450,7 +454,7 @@ export const CabinetMeeting: React.FC<CabinetMeetingProps> = ({
             </button>
             <div className="min-w-0">
               <h2 className="text-xs font-bold text-amber-500 uppercase tracking-widest font-mono flex items-center gap-1.5">
-                <span>{visualMode === 'cabinet' ? '📜 圣裁诏书：' : '📜 圣裁诏书：'}</span>
+                <span>{visualMode === 'cabinet' ? '📜 圣裁诏书：' : '📋 会话：'}</span>
                 <span className="truncate max-w-[120px] sm:max-w-md font-bold normal-case tracking-normal">
                   {title}
                 </span>
@@ -481,7 +485,7 @@ export const CabinetMeeting: React.FC<CabinetMeetingProps> = ({
                   ? 'text-stone-500 hover:text-red-500 hover:bg-[#221d18]/40'
                   : 'text-stone-500 hover:text-red-500 hover:bg-stone-500/10'
               }`}
-              title={visualMode === 'cabinet' ? "清空阁臣奏章" : "清空阁臣奏章"}
+              title={visualMode === 'cabinet' ? "清空阁臣奏章" : "清空记录"}
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -735,7 +739,7 @@ export const CabinetMeeting: React.FC<CabinetMeetingProps> = ({
                             }`}
                           >
                             <Check className={`w-3.5 h-3.5 ${activeStance === 'approve' ? 'stroke-[3]' : ''}`} />
-                            <span>{visualMode === 'cabinet' ? '准奏' : '准奏'}</span>
+                            <span>{visualMode === 'cabinet' ? '准奏' : '通过'}</span>
                           </button>
 
                           <button
@@ -773,7 +777,7 @@ export const CabinetMeeting: React.FC<CabinetMeetingProps> = ({
               </div>
               <div className="space-y-1.5 flex-1 font-sans">
                 <span className="text-[10px] font-mono text-amber-500 tracking-wider font-semibold">
-                  {visualMode === 'cabinet' ? '阁臣领旨审度应对中...' : '阁臣领旨审度应对中...'}
+                  {visualMode === 'cabinet' ? '阁臣领旨审度应对中...' : '成员思考中...'}
                 </span>
                 <div className={`p-4 rounded-xl border rounded-tl-sm text-xs leading-relaxed shadow-sm ${
                   visualMode === 'cabinet'
@@ -808,7 +812,7 @@ export const CabinetMeeting: React.FC<CabinetMeetingProps> = ({
                 <span>
                   {visualMode === 'cabinet'
                     ? `【密传诏令】正在传召公卿阁臣 【${targetMember.name}】 听候密旨单独对答。`
-                    : `【密传诏令】正在传召公卿阁臣 【${targetMember.name}】 听候密旨单独对答。`}
+                    : `【私聊】正在联系成员 【${targetMember.name}】 进行单独对话。`}
                 </span>
               </span>
               <button type="button" onClick={() => setTargetMember(undefined)} className="hover:text-stone-300 text-stone-500 font-bold px-1.5 text-xs">×</button>
@@ -857,8 +861,8 @@ export const CabinetMeeting: React.FC<CabinetMeetingProps> = ({
                 disabled={isGenerating}
                 placeholder={
                   targetMember
-                    ? (visualMode === 'cabinet' ? `起草下传阁臣 【${targetMember.name}】 密旨...` : `起草下传阁臣 【${targetMember.name}】 密旨...`)
-                    : (visualMode === 'cabinet' ? '宣召朱笔御批诏书，着群相阁僚通盘陈词答对...' : '宣召朱笔御批诏书，着群相阁僚通盘陈词答对...')
+                    ? (visualMode === 'cabinet' ? `起草下传阁臣 【${targetMember.name}】 密旨...` : `发送给成员 【${targetMember.name}】...`)
+                    : (visualMode === 'cabinet' ? '宣召朱笔御批诏书，着群相阁僚通盘陈词答对...' : '输入议题，让各成员展开讨论...')
                 }
                 rows={1}
                 className={`w-full text-xs rounded-2xl py-3 pl-10 pr-12 transition-all leading-relaxed shadow-inner border font-serif ${
@@ -894,7 +898,7 @@ export const CabinetMeeting: React.FC<CabinetMeetingProps> = ({
 
             {/* Bottom Debate/Decisions triggers */}
             <div className="flex flex-col md:flex-row gap-3 font-mono items-center w-full">
-              
+
               {/* Debate Trigger */}
               <button
                 type="button"
@@ -913,15 +917,35 @@ export const CabinetMeeting: React.FC<CabinetMeetingProps> = ({
               >
                 <RefreshCw className="w-3.5 h-3.5 text-amber-500 animate-spin-slow" />
                 <span>
-                  {visualMode === 'cabinet' 
+                  {visualMode === 'cabinet'
                     ? language === 'zh'
                       ? Object.keys(msgStances).length > 0 ? `批拟其案 (继续下轮廷议)` : '继续廷议 (下一轮)'
                       : Object.keys(msgStances).length > 0 ? `Decree & Debate (Next Round)` : 'Continue Debate (Next Round)'
                     : language === 'zh'
                       ? Object.keys(msgStances).length > 0 ? `裁定提议 (开展次轮辩论)` : '继续辩驳 (下一轮)'
-                      : Object.keys(msgStances).length > 0 ? `裁定提议 (开展次轮辩论)` : '继续辩驳 (下一轮)'}
+                      : Object.keys(msgStances).length > 0 ? `Decree (Continue Debate)` : 'Continue Debate (Next Round)'}
                 </span>
               </button>
+
+              {/* Stop Thinking Button */}
+              {isGenerating && (
+                <button
+                  type="button"
+                  onClick={onStopThinking}
+                  className={`px-4 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer w-full ${
+                    visualMode === 'cabinet'
+                      ? theme === 'dark'
+                        ? 'bg-[#221d18] border-[#c0a680]/30 text-[#ecd9bc] hover:bg-rose-600/10 hover:border-rose-600/50'
+                        : 'bg-white border-[#bca580]/55 text-stone-850 hover:bg-rose-50'
+                      : theme === 'dark'
+                        ? 'bg-[#2f2f2f] hover:bg-[#383838] border-[#3f3f3f] text-stone-300'
+                        : 'bg-[#f7f7f8] hover:bg-[#eef0f5] border-stone-200 text-stone-700'
+                  }`}
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-rose-500" />
+                  <span>{language === 'zh' ? '暂停思考' : 'Stop Thinking'}</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -935,11 +959,31 @@ export const CabinetMeeting: React.FC<CabinetMeetingProps> = ({
               >
                 <Gavel className="w-3.5 h-3.5 stroke-[2.5]" />
                 <span>
-                  {visualMode === 'cabinet' 
+                  {visualMode === 'cabinet'
                     ? language === 'zh' ? '圣裁' : '圣裁'
-                    : language === 'zh' ? '定案' : '定案'}
+                    : language === 'zh' ? '定案' : 'Verdict'}
                 </span>
               </button>
+
+              {/* Auto Debate Button */}
+              {onOpenAutoDebate && (
+                <button
+                  type="button"
+                  className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    visualMode === 'cabinet'
+                      ? theme === 'dark'
+                        ? 'bg-[#221d18] border-[#c0a680]/30 text-[#ecd9bc] hover:bg-amber-600/10 hover:border-amber-600/50 border'
+                        : 'bg-white border-[#bca580]/55 text-stone-850 hover:bg-[#faf5eb] border'
+                      : theme === 'dark'
+                        ? 'bg-[#2f2f2f] hover:bg-[#383838] border-[#3f3f3f] text-stone-300 border'
+                        : 'bg-[#f7f7f8] hover:bg-[#eef0f5] border-stone-200 text-stone-700 border'
+                  }`}
+                  onClick={onOpenAutoDebate}
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-amber-500" />
+                  <span>{language === 'zh' ? '自动辩驳' : 'Auto Debate'}</span>
+                </button>
+              )}
             </div>
 
           </form>

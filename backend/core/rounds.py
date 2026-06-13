@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from backend.core.agent_factory import build_agent_from_member
@@ -118,7 +118,7 @@ def _create_assignments(round_record: RoundRecord, room: ChatRoom) -> list[TaskA
             ],
             context_packet=round_record.round_input.model_dump_json(),
             priority=5,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         assignments.append(assignment)
     return assignments
@@ -175,7 +175,7 @@ def _build_shared_brief(round_record: RoundRecord) -> SharedBrief:
 
 
 def _finish_round(round_record: RoundRecord, room: ChatRoom, mode: str) -> RoundRecord:
-    round_record.completed_at = datetime.utcnow()
+    round_record.completed_at = datetime.now(timezone.utc)
     if mode == "panel":
         transition_round(round_record, RoundStatus.WAITING_USER)
     else:
@@ -207,7 +207,7 @@ def run_round(
         participant_agent_ids=participants,
         coordinator_agent_id=coordinator.agent_id,
         round_input=_build_round_input(room, mode, current_goal=current_goal, constraints=constraints),
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         status=RoundStatus.PENDING,
     )
 

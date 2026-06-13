@@ -1,0 +1,19 @@
+name: Validate Decision Cabinet
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python scripts/validate_skill.py
+      - run: python scripts/evaluate_output.py tests/fixtures/passing-route-output.md
+      - run: python scripts/validate_decision_receipt.py tests/fixtures/passing-decision-receipt.md
+      - run: python scripts/validate_outcome_review.py tests/fixtures/passing-outcome-review.md
+      - run: python scripts/estimate_model_route.py tests/fixtures/model-cabinet-cost.json

@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { ViewType, VisualModeType, CabinetMember, ChatMessage, VerdictOption, HistorySession } from './types';
-import { INITIAL_MEMBERS, TOPICS, INITIAL_MESSAGES_CABINET, INITIAL_MESSAGES_UN, getInitialMessages, normalizeMessageForLanguage } from './data';
+import { INITIAL_MEMBERS } from './data';
 import { CabinetSelection } from './components/CabinetSelection';
 import { NewSession } from './components/NewSession';
 import { CabinetMeeting } from './components/CabinetMeeting';
@@ -16,6 +16,7 @@ import { LocalTools } from './components/LocalTools';
 import { FolderReader } from './components/FolderReader';
 import { IssueReport } from './components/IssueReport';
 import { ImageStudio } from './components/ImageStudio';
+import { AutoDebate } from './components/AutoDebate';
 import { t } from './i18n';
 import { fontScaleRootStyle } from './uiScale';
 import { getProviderAvatar } from './providerAvatars';
@@ -44,15 +45,15 @@ const uniqueMembers = (items: CabinetMember[]): CabinetMember[] => {
 
 export default function App() {
   const [view, setView] = useState<ViewType>('new-session'); // Default to landing suggestions
-  const [visualMode, setVisualMode] = useState<VisualModeType>('cabinet');
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [visualMode, setVisualMode] = useState<VisualModeType>('un');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [language, setLanguage] = useState<'zh' | 'en'>('zh');
   const [fontSize, setFontSize] = useState<'sm' | 'md' | 'lg' | 'xl'>('md');
   const [members, setMembers] = useState<CabinetMember[]>(INITIAL_MEMBERS);
   const [projectBrief, setProjectBrief] = useState<string>('');
   const [projectHandoff, setProjectHandoff] = useState<string>('');
-  
-  const [sessionTitle, setSessionTitle] = useState('关于北境盐铁专营之榷议');
+
+  const [sessionTitle, setSessionTitle] = useState('新会话');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   
   // Historical session lists
@@ -72,6 +73,8 @@ export default function App() {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [showVerdictModal, setShowVerdictModal] = useState(false);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [showAutoDebate, setShowAutoDebate] = useState(false);
 
   const [lastViewBeforeNav, setLastViewBeforeNav] = useState<ViewType>('new-session');
   const [isComposingNewSession, setIsComposingNewSession] = useState(false);
@@ -89,16 +92,18 @@ export default function App() {
       .filter(m => !m.isDefault && !DEFAULT_MEMBER_IDS.has(m.id))
       .map(m => ({
         id: m.id, name: m.name, nickname: m.nickname || '', avatar: m.avatar || '',
-        type: m.type, role: m.role, ministry: m.ministry, skillId: m.skillId || '',
+        badge: m.badge || '', type: m.type, role: m.role, ministry: m.ministry, skillId: m.skillId || '',
         providerId: m.providerId || '', apiProfileId: m.apiProfileId || '',
         localToolId: m.localToolId || '', modelId: m.modelId || '', enabled: m.enabled !== false,
+        selected: m.selected !== false,
       }));
     const memberOverrides: Record<string, Record<string, string>> = {};
     currentMembers.filter(m => m.isDefault).forEach(m => {
       memberOverrides[m.id] = {
         name: m.name, nickname: m.nickname || '', avatar: m.avatar || '',
         role: m.role, ministry: m.ministry, skillId: m.skillId || '',
-        providerId: m.providerId || '', apiProfileId: m.apiProfileId || '', localToolId: m.localToolId || '',
+        providerId: m.providerId || '', modelId: m.modelId || '',
+        apiProfileId: m.apiProfileId || '', localToolId: m.localToolId || '',
       };
     });
     fetch(`${base}/ai-members/settings`, {
@@ -126,7 +131,7 @@ export default function App() {
           selected: true,
           role: (m.role as 'pm' | 'sg' | 'none') || 'none',
           ministry: (m.ministry as any) || 'none',
-          badge: '自定义',
+          badge: m.badge || '自定义',
           skillId: m.skillId || '',
           providerId: m.providerId || '',
           modelId: m.modelId || '',
@@ -200,7 +205,7 @@ export default function App() {
           members: uniqueMembers(session.members || []),
         }));
         setSessions(parsed);
-        
+
         if (savedActiveId && parsed.some((s: any) => s.id === savedActiveId)) {
           const activeSess = parsed.find((s: any) => s.id === savedActiveId);
           setActiveSessionId(savedActiveId);
@@ -209,38 +214,18 @@ export default function App() {
           setMembers(activeSess.members);
           setView('meeting');
         } else {
-          // If no active session, show pristine landingSuggestions (view='new-session')
+          // If no active session, show pristine landing (view='new-session')
           setView('new-session');
         }
       } catch (e) {
         console.error('Failed to parse saved sessions', e);
+        setView('new-session');
       }
     } else {
-      // Pre-populate with beautiful initial sessions so the app feels immediately active and professional
-      const initialSess: ExtendedSession[] = [
-        {
-          id: 'session-salt',
-          title: '关于北境盐铁专营之榷议',
-          timestamp: '丙辰/腊月廿三',
-          mode: 'cabinet',
-          sessionMode: 'meeting',
-          pinned: true,
-          members: INITIAL_MEMBERS,
-          messages: getInitialMessages('cabinet', language)
-        },
-        {
-          id: 'session-ethics',
-          title: '关于两湖大区灾后财政核准案',
-          timestamp: '丙辰年 仲春十五',
-          mode: 'cabinet',
-          sessionMode: 'meeting',
-          pinned: false,
-          members: INITIAL_MEMBERS.map(m => m.id === 'tool-custom' ? { ...m, role: 'none' } : m),
-          messages: getInitialMessages('cabinet', language)
-        }
-      ];
-      setSessions(initialSess);
-      localStorage.setItem('cabinet_sessions_v3', JSON.stringify(initialSess));
+      // First launch: start clean with an empty session list and a blank landing.
+      // No pre-filled demo conversations.
+      setSessions([]);
+      setView('new-session');
     }
     // Try loading minister config from backend
     loadMembersFromBackend();
@@ -276,20 +261,20 @@ export default function App() {
   ) => {
     const newId = 'session-' + Math.random().toString(36).substring(2, 9);
     
-    // Create Emperor's decree
+    // Create the opening user message
     const userMsg: ChatMessage = {
       id: Math.random().toString(36),
-      sender: visualMode === 'cabinet' ? '朕 (圣上)' : '朕 (圣上)',
+      sender: visualMode === 'cabinet' ? '朕 (圣上)' : '我',
       avatar: '',
       content: prompt,
       isUser: true,
-      roleLabel: visualMode === 'cabinet' ? '圣上' : '圣上'
+      roleLabel: visualMode === 'cabinet' ? '圣上' : '我'
     };
 
     const newSession: ExtendedSession = {
       id: newId,
       title,
-      timestamp: visualMode === 'cabinet' ? '丙辰 / 即刻时' : '丙辰 / 即刻时',
+      timestamp: visualMode === 'cabinet' ? '丙辰 / 即刻时' : '刚刚',
       mode: visualMode,
       sessionMode,
       members: chosenMembers,
@@ -469,15 +454,15 @@ export default function App() {
 
   // Dispatch message sending
   const handleSendMessage = async (text: string, directTarget?: CabinetMember) => {
-    const targetBrief = directTarget ? (visualMode === 'cabinet' ? `【密奏 @${directTarget.name.split(' ')[0]}】 ` : `【密奏 @${directTarget.name.split(' ')[0]}】 `) : '';
-    
+    const targetBrief = directTarget ? (visualMode === 'cabinet' ? `【密奏 @${directTarget.name.split(' ')[0]}】 ` : `【私聊 @${directTarget.name.split(' ')[0]}】 `) : '';
+
     const userMsg: ChatMessage = {
       id: Math.random().toString(36),
-      sender: visualMode === 'cabinet' ? '朕 (圣上)' : '朕 (圣上)',
+      sender: visualMode === 'cabinet' ? '朕 (圣上)' : '我',
       avatar: '',
       content: targetBrief ? targetBrief + text : text,
       isUser: true,
-      roleLabel: visualMode === 'cabinet' ? '圣上' : '圣上'
+      roleLabel: visualMode === 'cabinet' ? '圣上' : '我'
     };
 
     const updated = [...messages, userMsg];
@@ -492,11 +477,19 @@ export default function App() {
   // CONTINUATION CONTROLLER ("再议一轮")
   const handleAutomaticSelfTrigger = async (rounds: number = 1) => {
     if (messages.length === 0 || isGenerating) return;
-    const triggerPrompt = visualMode === 'cabinet' 
+    const triggerPrompt = visualMode === 'cabinet'
       ? '内阁诸臣，各部公卿，请就刚才的提议，再议一轮，尽速辩驳陈奏！'
-      : '诸臣依次批阅前议、提出辩驳，汇整合议结论。';
-    
-    await handleTriggerDebateRound(triggerPrompt, messages, members.filter(m => m.selected), rounds);
+      : '请各成员针对前面的发言再讨论一轮，互相补充和质疑，给出更具体的结论。';
+
+    await handleTriggerDebateRound(triggerPrompt, messages, members.filter(m => m.selected), rounds, activeSessionId, members, true);
+  };
+
+  const handleStopThinking = () => {
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+      setIsGenerating(false);
+    }
   };
 
   const getApiConfigsForMembers = (activePool: CabinetMember[]) => {
@@ -505,7 +498,20 @@ export default function App() {
       if (!saved) return [];
       const parsed = JSON.parse(saved);
       if (!Array.isArray(parsed)) return [];
-      const providerIds = new Set(activePool.map(m => (m.providerId || '').toLowerCase()).filter(Boolean));
+      // provider id 与设置页 config id 之间的别名（如成员 providerId 'claude' 对应设置项 'anthropic'）
+      const PROVIDER_ALIASES: Record<string, string[]> = {
+        claude: ['claude', 'anthropic'],
+        anthropic: ['anthropic', 'claude'],
+        openai: ['openai', 'gpt', 'chatgpt'],
+        google: ['google', 'gemini'],
+        gemini: ['gemini', 'google'],
+      };
+      const providerIds = new Set<string>();
+      activePool.forEach(m => {
+        const pid = (m.providerId || '').toLowerCase();
+        if (!pid) return;
+        (PROVIDER_ALIASES[pid] || [pid]).forEach(a => providerIds.add(a));
+      });
       const needsRelay = activePool.some(m => ['model', 'custom'].includes(m.type));
       return parsed
         .filter((item: any) => {
@@ -526,53 +532,57 @@ export default function App() {
 
   // Call main api backend debate with support for sequential multi-round simulations
   const handleTriggerDebateRound = async (
-    queryText: string, 
-    currentHistory: ChatMessage[], 
+    queryText: string,
+    currentHistory: ChatMessage[],
     activePool: CabinetMember[],
     roundsToRun: number = 1,
     targetSessionId: string | null = activeSessionId,
-    sessionMembers: CabinetMember[] = members
+    sessionMembers: CabinetMember[] = members,
+    forceShowDivider: boolean = false,
   ) => {
+    const controller = new AbortController();
+    setAbortController(controller);
     try {
       setIsGenerating(true);
       let cumulativeHistory = [...currentHistory];
 
-      for (let r = 1; r <= roundsToRun; r++) {
+      // Count existing round dividers to determine correct round numbering
+      const existingRounds = currentHistory.filter(m => m.isRoundDivider).length;
+
+      for (let i = 0; i < roundsToRun; i++) {
+        const roundNumber = existingRounds + i + 1;
+        const showDivider = forceShowDivider || existingRounds > 0 || roundsToRun > 1;
         const isCabinet = visualMode === 'cabinet';
-        const isZh = language === 'zh';
-        
-        // Render timeline round divider
-        const roundTitle = isCabinet
-          ? isZh
-            ? `📜 ─── 【第 ${r} 轮 廷议辩驳展开】 ─── 📜`
-            : `📜 ─── 【第 ${r} 轮 廷议辩驳展开】 ─── 📜`
-          : isZh
-            ? `📜 ─── 【第 ${r} 轮 廷议辩驳展开】 ─── 📜`
-            : `📜 ─── 【第 ${r} 轮 廷议辩驳展开】 ─── 📜`;
 
-        const dividerMsg: ChatMessage = {
-          id: `divider-${Math.random().toString(36)}`,
-          sender: 'SYSTEM_DIVIDER',
-          avatar: '',
-          content: roundTitle,
-          isUser: false,
-          roleLabel: 'SYSTEM',
-          isRoundDivider: true,
-          roundNumber: r
-        };
+        if (showDivider) {
+          const roundTitle = isCabinet
+            ? `📜 ─── 【第 ${roundNumber} 轮 廷议辩驳展开】 ─── 📜`
+            : `─── 第 ${roundNumber} 轮讨论 ───`;
 
-        cumulativeHistory = [...cumulativeHistory, dividerMsg];
-        setMessages(cumulativeHistory);
-        syncActiveSessionData(sessionMembers, cumulativeHistory, targetSessionId);
+          const dividerMsg: ChatMessage = {
+            id: `divider-${Math.random().toString(36)}`,
+            sender: 'SYSTEM_DIVIDER',
+            avatar: '',
+            content: roundTitle,
+            isUser: false,
+            roleLabel: 'SYSTEM',
+            isRoundDivider: true,
+            roundNumber
+          };
 
-        // Gentle pause to absorb the divider unfolding transition
-        await new Promise(resolve => setTimeout(resolve, 800));
+          cumulativeHistory = [...cumulativeHistory, dividerMsg];
+          setMessages(cumulativeHistory);
+          syncActiveSessionData(sessionMembers, cumulativeHistory, targetSessionId);
+
+          // Gentle pause to absorb the divider unfolding transition
+          await new Promise(resolve => setTimeout(resolve, 800));
+        }
 
         // Formulate target prompt adjusted sequentially to the round number
         const actualPrompt = roundsToRun > 1
           ? isCabinet
-            ? `【廷辩第 ${r} 轮】：群臣阁僚，请针对前序论点进行第 ${r} 轮相互辩驳，各抒己见！`
-            : `【廷辩第 ${r} 轮】：群臣阁僚，请针对前序论点进行第 ${r} 轮相互辩驳，各抒己见！`
+            ? `【廷辩第 ${roundNumber} 轮】：群臣阁僚，请针对前序论点进行第 ${roundNumber} 轮相互辩驳，各抒己见！`
+            : `第 ${roundNumber} 轮讨论：请各成员针对前面的论点继续讨论，互相补充和质疑。`
           : queryText;
 
         // Build selectedMembers with skill info
@@ -604,24 +614,66 @@ export default function App() {
             apiConfigs: getApiConfigsForMembers(activePool),
             projectBrief,
             projectHandoff
-          })
+          }),
+          signal: controller.signal
         });
 
         if (!response.ok) {
-          throw new Error('API debate simulation failed.');
+          let detail = '';
+          try {
+            const errData = await response.json();
+            detail = typeof errData.detail === 'string' ? errData.detail : JSON.stringify(errData.detail || '');
+          } catch {
+            detail = `HTTP ${response.status}`;
+          }
+          const errMsg: ChatMessage = {
+            id: `err-${Math.random().toString(36)}`,
+            sender: 'SYSTEM_DIVIDER',
+            avatar: '',
+            content: language === 'zh'
+              ? `⚠️ 调用失败：${detail}`
+              : `⚠️ Request failed: ${detail}`,
+            isUser: false,
+            roleLabel: 'SYSTEM',
+            isRoundDivider: false,
+          };
+          cumulativeHistory.push(errMsg);
+          setMessages([...cumulativeHistory]);
+          syncActiveSessionData(sessionMembers, cumulativeHistory, targetSessionId);
+          break;
         }
 
         const data = await response.json();
         const newMessages: ChatMessage[] = data.messages || [];
 
+        // Warn once if any member ran on demo data (no real model wired up).
+        if (data.demoMode && i === 0) {
+          const demoMsg: ChatMessage = {
+            id: `demo-${Math.random().toString(36)}`,
+            sender: 'SYSTEM_DIVIDER',
+            avatar: '',
+            content: language === 'zh'
+              ? '⚠️ 当前为演示数据：尚未接入真实模型。请在「系统设置」中配置 Provider 或 CC Switch 后再试。'
+              : '⚠️ Demo data: no real model connected. Configure a Provider or CC Switch in Settings, then try again.',
+            isUser: false,
+            roleLabel: 'SYSTEM',
+            isRoundDivider: false,
+          };
+          cumulativeHistory.push(demoMsg);
+          setMessages([...cumulativeHistory]);
+          syncActiveSessionData(sessionMembers, cumulativeHistory, targetSessionId);
+        }
+
         if (newMessages.length > 0) {
           for (let i = 0; i < newMessages.length; i++) {
             await new Promise((resolve) => setTimeout(resolve, i === 0 ? 300 : 1200));
             
-            const match = INITIAL_MEMBERS.find(m => m.id === newMessages[i].ministerId);
+            const match = sessionMembers.find(m => m.id === newMessages[i].ministerId)
+              || activePool.find(m => m.id === newMessages[i].ministerId)
+              || INITIAL_MEMBERS.find(m => m.id === newMessages[i].ministerId);
             const finalMsg: ChatMessage = {
               ...newMessages[i],
-              avatar: match?.avatar || '',
+              avatar: match?.avatar || newMessages[i].avatar || '',
             };
             cumulativeHistory.push(finalMsg);
             setMessages([...cumulativeHistory]);
@@ -630,7 +682,7 @@ export default function App() {
         }
 
         // Delay between rounds
-        if (r < roundsToRun) {
+        if (i < roundsToRun - 1) {
           await new Promise(resolve => setTimeout(resolve, 1500));
         }
       }
@@ -638,20 +690,21 @@ export default function App() {
       console.error(err);
     } finally {
       setIsGenerating(false);
+      setAbortController(null);
     }
   };
 
-  // Finalize selected plan as final imperial decree/promulgated verdict
+  // Finalize selected plan as final decision / verdict
   const handleSubmitVerdict = (plan: VerdictOption, executionAgentName: string) => {
     const verdictDeclaration: ChatMessage = {
       id: Math.random().toString(36),
-      sender: visualMode === 'cabinet' ? '【交办执行】内阁谕旨' : '【交办执行】内阁谕旨',
+      sender: visualMode === 'cabinet' ? '【交办执行】内阁谕旨' : '【最终决定】',
       avatar: '',
       content: visualMode === 'cabinet'
         ? `【奉旨交办执行】\n\n钦命大纲：【${plan.title}】\n折大纲要：${plan.description}\n承办执行 Agent：💻 ${executionAgentName}\n\n朕准此折！命工部及 ${executionAgentName} 即刻奉旨启奏、编码核验，依案推演，钦此！`
-        : `【奉旨交办执行】\n\n钦命大纲：【${plan.title}】\n折大纲要：${plan.description}\n承办执行 Agent：💻 ${executionAgentName}\n\n朕准此折！命工部及 ${executionAgentName} 即刻奉旨启奏、编码核验，依案推演，钦此！`,
+        : `【最终决定】\n\n采纳方案：${plan.title}\n方案要点：${plan.description}\n执行 Agent：💻 ${executionAgentName}\n\n已确定该方案，交由 ${executionAgentName} 执行：落地实现、编码与验证。`,
       isUser: false,
-      roleLabel: visualMode === 'cabinet' ? '交办执行' : '交办执行'
+      roleLabel: visualMode === 'cabinet' ? '交办执行' : '最终决定'
     };
 
     const finalMessages = [...messages, verdictDeclaration];
@@ -837,7 +890,7 @@ export default function App() {
         <div className="flex-1 overflow-y-auto px-2 space-y-1.5 py-2 scrollbar-none">
           {filteredSessions.length === 0 ? (
             <div className={`text-center py-8 text-[11px] font-mono select-none ${isLight ? 'text-stone-400' : 'text-stone-600'}`}>
-              无匹配廷议历史
+              无匹配的会话历史
             </div>
           ) : (
             filteredSessions.map((session) => {
@@ -983,15 +1036,15 @@ export default function App() {
           </button>
 
           <button
-            onClick={() => handleNavWithBackup('image-studio')}
+            onClick={() => handleNavWithBackup('auto-debate')}
             className={`w-full py-2 px-3 rounded-lg text-xs transition duration-150 flex items-center gap-2 cursor-pointer ${
               isCabinet
                 ? isLight ? 'hover:bg-[#dfd3b5]/40 text-[#54432d]' : 'hover:bg-[#25201a] text-[#ebd9bc]'
                 : isLight ? 'hover:bg-[#eaecee] text-stone-700' : 'hover:bg-neutral-800 text-stone-300'
-            } ${view === 'image-studio' ? (isCabinet ? 'bg-[#c5a880]/15 font-bold text-amber-600' : 'bg-emerald-600/10 font-bold text-emerald-500') : ''}`}
+            } ${view === 'auto-debate' ? (isCabinet ? 'bg-[#c5a880]/15 font-bold text-amber-600' : 'bg-amber-600/10 font-bold text-amber-500') : ''}`}
           >
-            <ImageIcon className="w-4 h-4 text-fuchsia-400 shrink-0" />
-            <span>AI 图像创作</span>
+            <RefreshCw className="w-4 h-4 text-amber-500 shrink-0" />
+            <span>自动辩驳</span>
           </button>
 
           <button
@@ -1133,7 +1186,7 @@ export default function App() {
 
                       {topActionTab === 'host' && (
                         <div className="space-y-1.5">
-                          <p className="text-[10px] text-stone-505 mb-1">重任司职：钦命起草首辅/首座大臣</p>
+                          <p className="text-[10px] text-stone-505 mb-1">指定召集人 / 主持成员</p>
                           {members.filter(m => m.selected).map(m => (
                             <button key={m.id} onClick={() => handleUpdateRoleActive(m.id, visualMode === 'cabinet' ? 'pm' : 'sg')} className="w-full p-1.5 rounded bg-stone-950 hover:bg-amber-600/10 border border-stone-800 text-left text-[11px] truncate flex items-center justify-between">
                               <span className="flex items-center gap-1">👑 {m.name}</span>
@@ -1207,7 +1260,7 @@ export default function App() {
                 <p className="text-stone-400 text-xs tracking-wide max-w-md mx-auto leading-relaxed">
                   {visualMode === 'cabinet'
                     ? '起谕旨、配阁臣、命尚书、交承办。针对家国重典大事进行多智能体自动推算与终局决策。'
-                    : '起谕旨、配阁臣、命尚书、交承办。针对家国重典大事进行多智能体自动推算与终局决策。'}
+                    : '提出议题、选择成员、多个 AI 协作讨论，汇总意见后形成可执行的最终方案。'}
                 </p>
               </div>
 
@@ -1270,16 +1323,18 @@ export default function App() {
               )}
 
               {view === 'meeting' && (
-                <CabinetMeeting 
+                <CabinetMeeting
                   title={sessionTitle}
                   messages={messages}
                   members={members}
                   onSendMessage={handleSendMessage}
                   onSelfTrigger={handleAutomaticSelfTrigger}
+                  onStopThinking={handleStopThinking}
                   onOpenVerdict={() => setShowVerdictModal(true)}
                   onSwitchToColumns={() => setView('columns')}
                   onBack={() => setView('new-session')}
                   onClear={handleClearTranscript}
+                  onOpenAutoDebate={() => setShowAutoDebate(true)}
                   isGenerating={isGenerating}
                   visualMode={visualMode}
                   theme={theme}
@@ -1348,6 +1403,18 @@ export default function App() {
                 />
               )}
 
+              {view === 'auto-debate' && (
+                <AutoDebate
+                  members={members}
+                  onSendMessage={handleSendMessage}
+                  onBack={() => setView(lastViewBeforeNav || 'meeting')}
+                  visualMode={visualMode}
+                  theme={theme}
+                  language={language}
+                  backendBaseUrl={backendBaseUrl}
+                />
+              )}
+
               {view === 'image-studio' && (
                 <ImageStudio
                   onBack={() => setView(lastViewBeforeNav || 'meeting')}
@@ -1363,13 +1430,32 @@ export default function App() {
 
       {/* Decision Finalize modal overlay */}
       {showVerdictModal && (
-        <VerdictModal 
+        <VerdictModal
           onClose={() => setShowVerdictModal(false)}
           onSubmitVerdict={handleSubmitVerdict}
           messages={messages}
           contextTitle={sessionTitle}
           visualMode={visualMode}
         />
+      )}
+
+      {/* Auto Debate modal overlay */}
+      {showAutoDebate && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className={`w-full max-w-4xl h-[90vh] rounded-2xl overflow-hidden shadow-2xl ${
+            theme === 'light' ? 'bg-white' : 'bg-stone-900'
+          }`}>
+            <AutoDebate
+              members={members}
+              onSendMessage={handleSendMessage}
+              onBack={() => setShowAutoDebate(false)}
+              visualMode={visualMode}
+              theme={theme}
+              language={language}
+              backendBaseUrl={backendBaseUrl}
+            />
+          </div>
+        </div>
       )}
 
     </div>

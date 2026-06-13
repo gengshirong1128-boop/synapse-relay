@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from backend.core.provider_profiles import provider_profile_store
 from backend.core.positions import position_store
@@ -78,7 +78,7 @@ class AgentInstanceStore:
         return self._templates
 
     def create(self, request: AgentInstanceCreateRequest) -> AgentInstance:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if request.agent_id in self._instances:
             raise ValueError(f"agent_id already exists: {request.agent_id}")
 
@@ -144,7 +144,7 @@ class AgentInstanceStore:
             instance.receives_task_from_coordinator = position.position_id != "coordinator"
         if request.profile_id is not None:
             instance.profile_id = request.profile_id
-        instance.last_active_at = datetime.utcnow()
+        instance.last_active_at = datetime.now(timezone.utc)
         return instance
 
 

@@ -35,104 +35,36 @@ export interface LocalDeviceItem {
   desc: string;
 }
 
+// Real, user-runnable local model service endpoints. Status starts as 'unchecked'
+// (never faked as connected) and is only marked available after a real probe.
 const PRESET_DEVICES: LocalDeviceItem[] = [
   {
     id: 'local-ollama',
-    name: 'Ollama Service',
+    name: 'Ollama',
     localType: 'Ollama',
     status: 'unchecked',
     address: 'http://localhost:11434',
-    capabilities: ['代码补全', '自然语言交互', '离线长推理(CoT)', '代码重构'],
-    isCallable: true,
+    capabilities: ['本地开源模型', 'OpenAI 兼容接口', '离线推理'],
+    isCallable: false,
     isAuthorized: true,
     lastChecked: '',
     errorReason: '',
-    badge: '本地开源模型',
-    desc: '提供Llama 3, Qwen 2.5, DeepSeek R1等开源模型的本地加载及流畅运行。'
+    badge: '本地模型服务',
+    desc: '本地运行 Llama、Qwen、DeepSeek 等开源模型。需先在本机启动 Ollama 服务。'
   },
   {
     id: 'local-lm-studio',
-    name: 'LM Studio Engine',
+    name: 'LM Studio',
     localType: 'LM Studio',
     status: 'unchecked',
     address: 'http://localhost:1234',
-    capabilities: ['OpenAI-compatible接口', '多并发会话调试', '流式解答驱动'],
-    isCallable: true,
+    capabilities: ['OpenAI 兼容接口', '本地模型托管', '流式输出'],
+    isCallable: false,
     isAuthorized: true,
     lastChecked: '',
     errorReason: '',
-    badge: '模型沙盒后端',
-    desc: '高度视觉化的本地模型托管后端，支持单机全功能加载与多卡分配。'
-  },
-  {
-    id: 'local-codex',
-    name: 'Codex Dev Assistant',
-    localType: 'Codex',
-    status: 'unchecked',
-    address: 'http://localhost:1990',
-    capabilities: ['源码热替换', '项目重构审查', '本地微调加速', 'API测试'],
-    isCallable: true,
-    isAuthorized: true,
-    lastChecked: '',
-    errorReason: '',
-    badge: '高级调试专班',
-    desc: '专为内阁系统集成的热部署调试脚本引擎，支持高级操作系统挂钩。'
-  },
-  {
-    id: 'local-claudecode',
-    name: 'Claude Code Standalone',
-    localType: 'Claude Code',
-    status: 'unchecked',
-    address: 'http://localhost:3000/api/claudecode',
-    capabilities: ['终端审计', '合规检测', '自动漏洞修复', '测试用例开发'],
-    isCallable: true,
-    isAuthorized: false,
-    lastChecked: '',
-    errorReason: '尚未授权终端对本窗口的通信总线。',
-    badge: '审计/审查专员',
-    desc: '命令行交互Agent，专门负责生成漏洞阻断方案及对输出代码提供完整性核查。'
-  },
-  {
-    id: 'local-cursor',
-    name: 'Cursor Local Bridge',
-    localType: 'Cursor',
-    status: 'unchecked',
-    address: 'http://localhost:6065',
-    capabilities: ['多文件索引', 'AI编辑历史穿梭', '高并发自动修复'],
-    isCallable: true,
-    isAuthorized: true,
-    lastChecked: '',
-    errorReason: '',
-    badge: 'IDE辅助代理',
-    desc: 'Cursor编辑器后台联动总线，便于在开朝时直接从编辑器中提取指定修改代码。'
-  },
-  {
-    id: 'local-cline',
-    name: 'Cline MCP Gateway',
-    localType: 'Cline',
-    status: 'unchecked',
-    address: 'http://localhost:4567',
-    capabilities: ['MCP协议总线', '自主指令链', '本地写文件/读终端'],
-    isCallable: true,
-    isAuthorized: true,
-    lastChecked: '',
-    errorReason: '',
-    badge: 'MCP自主Agent',
-    desc: '功能全面的自主本地执行Agent门闸，内置对数十种本地微执行器的联动支持。'
-  },
-  {
-    id: 'local-mcp-server',
-    name: 'Local MCP Server Core',
-    localType: 'Local MCP Server',
-    status: 'unchecked',
-    address: 'http://localhost:8500',
-    capabilities: ['文件操作', '内置工具链清单', '本地SQLite数据库索引', 'Git集成'],
-    isCallable: true,
-    isAuthorized: true,
-    lastChecked: '',
-    errorReason: '',
-    badge: '工具总线中心',
-    desc: '本地模型上下文协议(MCP)宿主，提供诸如本地知识库检索和代码写入服务。'
+    badge: '本地模型服务',
+    desc: '可视化的本地模型托管后端，提供 OpenAI 兼容接口。需在本机启动并开启服务。'
   },
   {
     id: 'local-openai-gateway',
@@ -140,15 +72,22 @@ const PRESET_DEVICES: LocalDeviceItem[] = [
     localType: '本地 OpenAI-compatible API',
     status: 'unchecked',
     address: 'http://localhost:8000/v1',
-    capabilities: ['符合标准接口规范', '流式传输支持', '模型热切换支持'],
-    isCallable: true,
+    capabilities: ['标准接口规范', '流式传输', '模型热切换'],
+    isCallable: false,
     isAuthorized: true,
     lastChecked: '',
     errorReason: '',
-    badge: '自定义OpenAI网关',
-    desc: '用于路由本地方案、OneAPI/NewAPI中转后端或专网私有大模型的规范接入。'
+    badge: '自定义网关',
+    desc: '路由本地方案、OneAPI/NewAPI 中转后端或私有大模型的 OpenAI 兼容入口。'
   }
 ];
+
+// Map backend CLI detection status → device status used by this view.
+function cliStatusToDevice(status: string): LocalDeviceItem['status'] {
+  if (status === 'callable' || status === 'installed' || status === 'configured') return 'available';
+  if (status === 'not_installed') return 'unavailable';
+  return 'unchecked';
+}
 
 export const LocalTools: React.FC<LocalToolsProps> = ({
   members,
@@ -160,7 +99,7 @@ export const LocalTools: React.FC<LocalToolsProps> = ({
   language = 'zh'
 }) => {
   const [devices, setDevices] = useState<LocalDeviceItem[]>(() => {
-    const saved = localStorage.getItem('cabinet_local_devices_v3');
+    const saved = localStorage.getItem('cabinet_local_devices_v4');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -191,14 +130,76 @@ export const LocalTools: React.FC<LocalToolsProps> = ({
   const isLight = theme === 'light';
 
   useEffect(() => {
-    localStorage.setItem('cabinet_local_devices_v3', JSON.stringify(devices));
+    localStorage.setItem('cabinet_local_devices_v4', JSON.stringify(devices));
   }, [devices]);
+
+  // Pull real CLI detection from the backend on mount and merge it in,
+  // so the list reflects what is actually installed instead of fake presets.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/providers/detect-local-tools');
+        if (!res.ok) return;
+        const data = await res.json();
+        const tools: any[] = data.tools || [];
+        if (cancelled || tools.length === 0) return;
+        const cliDevices: LocalDeviceItem[] = tools.map((t) => ({
+          id: t.id,
+          name: t.name,
+          localType: 'CLI',
+          status: cliStatusToDevice(String(t.status || '')),
+          address: t.executablePath || '本地 CLI',
+          capabilities: t.capabilities || [],
+          isCallable: t.status === 'callable',
+          isAuthorized: true,
+          lastChecked: new Date().toLocaleTimeString(),
+          errorReason: t.status === 'not_installed' ? '未在本机检测到该 CLI。' : '',
+          badge: '本地 CLI 工具',
+          desc: t.executablePath ? `已检测到：${t.executablePath}` : '本机 AI 命令行工具（来自后端真实检测）。',
+        }));
+        setDevices((prev) => {
+          const cliIds = new Set(cliDevices.map((d) => d.id));
+          // Keep user's HTTP service presets/customs, replace any prior CLI entries.
+          const nonCli = prev.filter((d) => d.localType !== 'CLI' && !cliIds.has(d.id));
+          return [...cliDevices, ...nonCli];
+        });
+      } catch {
+        // Backend unreachable: keep presets as-is.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Single connection test
   const testConnection = async (device: LocalDeviceItem): Promise<LocalDeviceItem> => {
     const start = Date.now();
     const timestamp = new Date().toLocaleTimeString();
-    
+
+    // CLI tools are verified by the backend (real executable probe), not HTTP fetch.
+    if (device.localType === 'CLI') {
+      try {
+        const res = await fetch(`/providers/local-tools/${device.id}/test`, { method: 'POST' });
+        const data = await res.json();
+        const ok = !!data.success || data.status === 'callable';
+        return {
+          ...device,
+          status: ok ? 'available' : 'unavailable',
+          isCallable: ok,
+          lastChecked: timestamp,
+          errorReason: ok ? '' : (data.error || '未检测到可调用的 CLI。'),
+        };
+      } catch (err: any) {
+        return {
+          ...device,
+          status: 'unavailable',
+          isCallable: false,
+          lastChecked: timestamp,
+          errorReason: '后端检测接口不可用。',
+        };
+      }
+    }
+
     // Check if it's Ollama or other local endpoints
     let url = device.address;
     if (device.localType === 'Ollama') {
@@ -428,16 +429,16 @@ export const LocalTools: React.FC<LocalToolsProps> = ({
             }`}
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>{visualMode === 'cabinet' ? '返回廷议会商' : '返回廷议会商'}</span>
+            <span>{visualMode === 'cabinet' ? '返回廷议会商' : '返回会话'}</span>
           </button>
-          
+
           <div>
             <h1 className={`text-xl font-extrabold font-display flex items-center gap-2 ${isLight ? 'text-stone-900' : 'text-stone-100'}`}>
               <Radio className="w-5 h-5 text-amber-500 animate-pulse" />
-              <span>{visualMode === 'cabinet' ? '大内本地工具检测总台' : '本地工具检测总台'}</span>
+              <span>{visualMode === 'cabinet' ? '大内本地工具检测总台' : '本地工具检测'}</span>
             </h1>
             <p className={`text-xs mt-1 ${isLight ? 'text-stone-500' : 'text-stone-400'}`}>
-              自动或手动侦读您电脑上运行的 Ollama, LM Studio, Cline, Claude Code, 本地 MCP 等，将其作为“阁臣”召入会审。
+              自动检测本机已安装的 AI CLI（Claude Code、Codex、Gemini 等），并可手动添加 Ollama、LM Studio 等本地模型服务，将其作为成员加入会审。
             </p>
           </div>
         </div>
@@ -487,27 +488,29 @@ export const LocalTools: React.FC<LocalToolsProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
         {filteredDevices.map((device) => {
           const isRegistered = members.some(m => m.id === device.id && m.selected);
-          
+
           return (
-            <div 
+            <div
               key={device.id}
-              className={`rounded-2xl p-5 border transition-all duration-350 flex flex-col justify-between h-72 shadow ${
-                isLight 
-                  ? 'bg-stone-50/70 border-stone-200 hover:shadow-md' 
-                  : 'bg-stone-900 border-stone-850 hover:border-stone-800 shadow-stone-950/20'
-              }`}
+              className={`rounded-2xl p-5 border transition-all duration-350 flex flex-col justify-between h-auto shadow ${
+                isLight
+                  ? 'bg-white border-stone-200 hover:shadow-lg hover:border-stone-300'
+                  : 'bg-stone-900 border-stone-800 hover:border-stone-700 shadow-stone-950/20'
+              } ${isRegistered ? 'ring-2 ring-amber-500/30' : ''}`}
             >
               <div>
-                <div className="flex justify-between items-start gap-2 mb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className={`p-2 rounded-xl border ${isLight ? 'bg-white border-stone-200' : 'bg-stone-950 border-stone-800'}`}>
-                      <Terminal className="w-5 h-5 text-amber-500" />
+                <div className="flex justify-between items-start gap-2 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-3 rounded-xl border ${isLight ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200' : 'bg-gradient-to-br from-stone-950 to-stone-900 border-stone-700'}`}>
+                      <Terminal className="w-6 h-6 text-amber-500" />
                     </div>
                     <div>
-                      <h3 className={`text-xs font-bold leading-none font-display ${isLight ? 'text-stone-800' : 'text-stone-200'}`}>
+                      <h3 className={`text-sm font-bold leading-tight font-display ${isLight ? 'text-stone-900' : 'text-white'}`}>
                         {device.name}
                       </h3>
-                      <span className="text-[9px] text-amber-500 font-bold font-mono uppercase tracking-wider block mt-1">
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md mt-1 inline-block ${
+                        isLight ? 'bg-amber-100 text-amber-700' : 'bg-amber-900/30 text-amber-400'
+                      }`}>
                         {device.localType}
                       </span>
                     </div>
@@ -533,80 +536,106 @@ export const LocalTools: React.FC<LocalToolsProps> = ({
                   </div>
                 </div>
 
-                <div className="space-y-1.5 my-3 text-[11px] font-sans">
-                  <p className={`line-clamp-2 leading-relaxed text-[11px] ${isLight ? 'text-stone-600' : 'text-stone-400'}`}>
+                <div className="space-y-2 my-4 text-[11px] font-sans">
+                  <p className={`line-clamp-2 leading-relaxed ${isLight ? 'text-stone-600' : 'text-stone-400'}`}>
                     {device.desc}
                   </p>
-                  
-                  <div className={`p-1.5 rounded-lg border text-[10px] font-mono select-all shrink-0 ${
-                    isLight ? 'bg-white border-stone-200 text-stone-600' : 'bg-stone-950 border-stone-850 text-stone-400'
+
+                  <div className={`flex items-center gap-2 p-2 rounded-lg border ${
+                    isLight ? 'bg-stone-50 border-stone-200' : 'bg-stone-950 border-stone-800'
                   }`}>
-                    地址: <strong className="font-bold">{device.address}</strong>
+                    <span className={`text-[10px] font-mono ${isLight ? 'text-stone-500' : 'text-stone-500'}`}>地址:</span>
+                    <code className={`text-xs font-mono font-bold flex-1 truncate ${isLight ? 'text-stone-800' : 'text-stone-300'}`}>
+                      {device.address}
+                    </code>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1">
+                    {device.capabilities.slice(0, 3).map((cap, i) => (
+                      <span key={i} className={`px-2 py-0.5 text-[9px] font-mono rounded-md ${
+                        isLight ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-900/20 text-emerald-400'
+                      }`}>
+                        {cap}
+                      </span>
+                    ))}
                   </div>
                 </div>
               </div>
 
               {/* Bottom Action controllers */}
-              <div>
-                
+              <div className="mt-auto">
+
                 {/* Trouble error text block */}
                 {device.errorReason && (
-                  <div className="mb-2 p-1.5 rounded bg-rose-950/10 text-rose-500 border border-rose-900/20 text-[9px] leading-relaxed font-mono font-bold max-h-12 overflow-y-auto">
+                  <div className="mb-3 p-2 rounded-lg bg-rose-500/5 text-rose-500 border border-rose-500/20 text-[10px] leading-relaxed font-mono">
                     ⚠️ {device.errorReason}
                   </div>
                 )}
 
-                <div className={`flex items-center justify-between border-t pt-3 gap-2 ${isLight ? 'border-stone-200' : 'border-stone-850'}`}>
-                  <div className="flex gap-1 shrink-0">
+                <div className={`flex items-center justify-between border-t pt-4 gap-3 ${isLight ? 'border-stone-200' : 'border-stone-800'}`}>
+                  <div className="flex gap-2 shrink-0">
                     <button
                       onClick={() => handleTestConnection(device.id)}
-                      className={`p-1 px-2.5 text-[10px] font-mono rounded-lg transition cursor-pointer font-bold border ${isLight ? 'bg-white border-stone-200 text-stone-600 hover:text-stone-900 hover:bg-stone-100' : 'bg-stone-950 border-stone-800 text-stone-300 hover:text-stone-100'}`}
-                      title="单独测试服务连通性"
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer border ${
+                        isLight
+                          ? 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100 hover:border-stone-300'
+                          : 'bg-stone-950 border-stone-800 text-stone-300 hover:text-white hover:border-stone-700'
+                      }`}
                     >
                       测试
                     </button>
                     <button
                       onClick={() => handleStartEdit(device)}
-                      className={`p-1 px-1.5 text-[10px] rounded transition cursor-pointer ${isLight ? 'hover:bg-stone-100 text-stone-500 hover:text-stone-800' : 'hover:bg-stone-800 text-stone-400 hover:text-stone-100'}`}
+                      className={`p-2 rounded-lg transition cursor-pointer ${isLight ? 'hover:bg-stone-100 text-stone-500 hover:text-stone-700' : 'hover:bg-stone-800 text-stone-400 hover:text-stone-100'}`}
                       title="修改连接及描述"
                     >
-                      <Edit2 className="w-3.5 h-3.5" />
+                      <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDeleteDevice(device.id)}
-                      className={`p-1 px-1.5 text-[10px] rounded transition cursor-pointer hover:text-rose-500 ${isLight ? 'hover:bg-stone-100 text-stone-400' : 'text-stone-400 hover:bg-rose-950/10'}`}
+                      className={`p-2 rounded-lg transition cursor-pointer hover:text-rose-500 ${isLight ? 'hover:bg-rose-50 text-stone-400' : 'text-stone-400 hover:bg-rose-950/10'}`}
                       title="删除该条设备记录"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
 
-                  <div className="flex gap-1 text-[10px] font-mono">
+                  <div className="flex gap-2 text-xs font-mono">
                     <button
                       onClick={() => { setShowCapabilityDetails(device); }}
-                      className={`px-2 py-1 rounded font-bold cursor-pointer transition ${isLight ? 'hover:bg-stone-100 text-stone-550 hover:text-stone-800' : 'hover:bg-stone-850 text-stone-300 hover:text-white'}`}
+                      className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer transition border ${
+                        isLight
+                          ? 'hover:bg-stone-100 text-stone-600 hover:text-stone-800 border-stone-200'
+                          : 'hover:bg-stone-800 text-stone-300 hover:text-white border-stone-700'
+                      }`}
                     >
                       能力
                     </button>
 
                     <button
                       onClick={() => registerAsCabinetMember(device, 'none')}
-                      className={`px-3 py-1 font-bold rounded-xl shadow cursor-pointer border ${
+                      className={`px-4 py-1.5 font-semibold rounded-lg shadow cursor-pointer transition-all ${
                         isRegistered
-                          ? 'bg-amber-600/15 text-amber-500 border-amber-600/20'
-                          : 'bg-amber-600 hover:bg-amber-500 text-stone-950 border-amber-600 hover:scale-[1.01]'
+                          ? isLight
+                            ? 'bg-amber-100 text-amber-700 border border-amber-300'
+                            : 'bg-amber-900/30 text-amber-400 border border-amber-700'
+                          : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white hover:scale-[1.02]'
                       }`}
                     >
-                      {isRegistered ? '已在大臣列' : '钦点为大臣'}
+                      {isRegistered ? '✓ 已加入' : '加入大臣'}
                     </button>
 
                     {device.status === 'available' && (
                       <button
                         onClick={() => registerAsCabinetMember(device, visualMode === 'cabinet' ? 'pm' : 'sg')}
-                        className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-bold cursor-pointer border border-indigo-700 hidden sm:block font-mono"
-                        title={visualMode === 'cabinet' ? '命此本地服务为领衔首辅' : '命此本地服务为领衔首辅'}
+                        className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer transition-all ${
+                          isLight
+                            ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 border border-indigo-200'
+                            : 'bg-indigo-900/30 text-indigo-400 hover:bg-indigo-900/50 border border-indigo-700'
+                        }`}
+                        title={visualMode === 'cabinet' ? '命此本地服务为领衔首辅' : '设为召集人'}
                       >
-                        首辅
+                        设为首辅
                       </button>
                     )}
                   </div>

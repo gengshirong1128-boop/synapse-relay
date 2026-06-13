@@ -28,7 +28,7 @@ type RuntimeCheck = {
 };
 
 export const IssueReport: React.FC<IssueReportProps> = ({ onBack, theme = 'dark' }) => {
-  const [email, setEmail] = useState(() => localStorage.getItem('cabinet_feedback_email') || '');
+  const [email, setEmail] = useState(() => localStorage.getItem('cabinet_feedback_email') || 'gengshirong2@gmail.com');
   const [category, setCategory] = useState('功能异常');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');

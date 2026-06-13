@@ -1,6 +1,6 @@
 ﻿from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -105,7 +105,7 @@ class HistoryStore:
         history_payload = self._read_json(room_path, {})
         execution_logs_summary = list(history_payload.get("execution_logs_summary", []))
         if execution_log_summary:
-            execution_logs_summary.append({"at": datetime.utcnow().isoformat(), "summary": self._trim_preview(execution_log_summary, 300)})
+            execution_logs_summary.append({"at": datetime.now(timezone.utc).isoformat(), "summary": self._trim_preview(execution_log_summary, 300)})
             execution_logs_summary = execution_logs_summary[-20:]
 
         payload = {
@@ -167,7 +167,7 @@ class HistoryStore:
     def rename_room(self, room_id: str, new_title: str) -> dict[str, Any]:
         room = self.load_room(room_id)
         room.title = new_title.strip() or room.title
-        room.updated_at = datetime.utcnow()
+        room.updated_at = datetime.now(timezone.utc)
         self.save_room(room)
         return {"room_id": room.room_id, "title": room.title}
 
@@ -177,7 +177,7 @@ class HistoryStore:
         for item in items:
             if item.get("room_id") == room_id:
                 item["archived"] = archived
-                item["updated_at"] = datetime.utcnow().isoformat()
+                item["updated_at"] = datetime.now(timezone.utc).isoformat()
                 found = True
                 break
         if not found:
@@ -191,7 +191,7 @@ class HistoryStore:
         for item in items:
             if item.get("room_id") == room_id:
                 item["pinned"] = pinned
-                item["updated_at"] = datetime.utcnow().isoformat()
+                item["updated_at"] = datetime.now(timezone.utc).isoformat()
                 found = True
                 break
         if not found:

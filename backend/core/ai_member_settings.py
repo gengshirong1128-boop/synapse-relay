@@ -111,6 +111,7 @@ class AIMemberSettingsStore:
                     "name": str(m.get("name", "")),
                     "nickname": str(m.get("nickname", "")),
                     "avatar": str(m.get("avatar", "")),
+                    "badge": str(m.get("badge", "")),
                     "type": str(m.get("type", "custom")),
                     "role": str(m.get("role", "none")),
                     "ministry": str(m.get("ministry", "none")),
@@ -120,6 +121,7 @@ class AIMemberSettingsStore:
                     "localToolId": str(m.get("localToolId", "")),
                     "modelId": str(m.get("modelId", "")),
                     "enabled": bool(m.get("enabled", True)),
+                    "selected": bool(m.get("selected", True)),
                 })
             self._settings.customMembers = sanitized
 

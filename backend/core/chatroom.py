@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from backend.core.agent_factory import build_agent_from_member
@@ -63,7 +63,7 @@ class ChatRoomStore:
         self._rooms: dict[str, ChatRoom] = {}
 
     def create_default_room(self, request: RoomCreateRequest) -> ChatRoom:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         host_id = make_agent_id(request.host_agent.name)
         room = ChatRoom(
             room_id=str(uuid4()),
@@ -111,7 +111,7 @@ class ChatRoomStore:
         return room
 
     def save(self, room: ChatRoom) -> ChatRoom:
-        room.updated_at = datetime.utcnow()
+        room.updated_at = datetime.now(timezone.utc)
         self._rooms[room.room_id] = room
         history_store.save_room(room)
         return room
@@ -145,7 +145,7 @@ def build_room_message(
         mode=mode,
         status=status,
         token_estimate=estimate_payload_tokens(content),
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         metadata=metadata or {},
     )
 
@@ -164,7 +164,7 @@ def add_agent_member(room: ChatRoom, config: AgentConfig, context_limit_tokens: 
         existing.status = AgentStatus.ACTIVE
         existing.role = AgentRole(config.role)
         existing.context_limit_tokens = context_limit_tokens
-        room.updated_at = datetime.utcnow()
+        room.updated_at = datetime.now(timezone.utc)
         return existing
 
     member = AgentMember(
@@ -175,13 +175,13 @@ def add_agent_member(room: ChatRoom, config: AgentConfig, context_limit_tokens: 
         model=f"{config.provider}-default",
         credential_id="mock_default" if config.provider == "mock" else None,
         role=AgentRole(config.role),
-        joined_at=datetime.utcnow(),
+        joined_at=datetime.now(timezone.utc),
         context_limit_tokens=context_limit_tokens,
         position_id="domain_expert",
         position_name="Domain Expert",
     )
     room.members.append(member)
-    room.updated_at = datetime.utcnow()
+    room.updated_at = datetime.now(timezone.utc)
     return member
 
 
@@ -205,12 +205,12 @@ def add_agent_instance_to_room(room: ChatRoom, instance: AgentInstance) -> Agent
         existing.can_finalize = instance.can_finalize
         existing.reads_full_round_outputs = instance.reads_full_round_outputs
         existing.receives_task_from_coordinator = instance.receives_task_from_coordinator
-        room.updated_at = datetime.utcnow()
+        room.updated_at = datetime.now(timezone.utc)
         return existing
 
     member = member_from_instance(instance)
     room.members.append(member)
-    room.updated_at = datetime.utcnow()
+    room.updated_at = datetime.now(timezone.utc)
     return member
 
 
@@ -222,7 +222,7 @@ def remove_agent_member(room: ChatRoom, agent_id: str) -> AgentMember:
     if room.active_agent_id == agent_id:
         room.active_agent_id = room.host_agent_id
         room.mode = RoomMode.GROUP
-    room.updated_at = datetime.utcnow()
+    room.updated_at = datetime.now(timezone.utc)
     return member
 
 
@@ -230,13 +230,13 @@ def set_room_mode(room: ChatRoom, mode: RoomMode) -> ChatRoom:
     room.mode = mode
     if mode == RoomMode.GROUP:
         room.active_agent_id = room.host_agent_id
-    room.updated_at = datetime.utcnow()
+    room.updated_at = datetime.now(timezone.utc)
     return room
 
 
 def set_work_mode(room: ChatRoom, mode: WorkMode) -> ChatRoom:
     room.active_mode = mode
-    room.updated_at = datetime.utcnow()
+    room.updated_at = datetime.now(timezone.utc)
     return room
 
 
@@ -250,7 +250,7 @@ def set_chief_agent(room: ChatRoom, agent_id: str) -> ChatRoom:
     if member.position_id is None or member.position_id == "domain_expert":
         member.position_id = "coordinator"
         member.position_name = "Coordinator"
-    room.updated_at = datetime.utcnow()
+    room.updated_at = datetime.now(timezone.utc)
     return room
 
 
@@ -258,7 +258,7 @@ def set_active_agent(room: ChatRoom, agent_id: str | None) -> ChatRoom:
     if agent_id is None:
         room.mode = RoomMode.GROUP
         room.active_agent_id = room.host_agent_id
-        room.updated_at = datetime.utcnow()
+        room.updated_at = datetime.now(timezone.utc)
         return room
 
     member = get_member(room, agent_id)
@@ -266,7 +266,7 @@ def set_active_agent(room: ChatRoom, agent_id: str | None) -> ChatRoom:
         raise ValueError("Selected agent is not active.")
     room.active_agent_id = agent_id
     room.mode = RoomMode.PRIVATE if agent_id != room.host_agent_id else RoomMode.GROUP
-    room.updated_at = datetime.utcnow()
+    room.updated_at = datetime.now(timezone.utc)
     return room
 
 
@@ -312,7 +312,7 @@ def apply_imperial_review(room: ChatRoom, message_id: str, review_type: str, ins
         content=content,
         enabled=True,
         permanent=True,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     if review_type == "approve":
         room.guiding_directives.append(directive)
@@ -323,10 +323,10 @@ def apply_imperial_review(room: ChatRoom, message_id: str, review_type: str, ins
         "type": review_type,
         "label": label,
         "instruction": content,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
     target.metadata["imperial_review"] = target.imperial_review
-    room.updated_at = datetime.utcnow()
+    room.updated_at = datetime.now(timezone.utc)
     return target
 
 
@@ -387,7 +387,7 @@ def post_user_message(room: ChatRoom, content: str) -> tuple[RoomMessage, RoomMe
         metadata=metadata,
     )
     room.messages.append(agent_message)
-    room.updated_at = datetime.utcnow()
+    room.updated_at = datetime.now(timezone.utc)
     context_manager.refresh_room(room)
     return user_message, agent_message, host_decision
 
@@ -402,7 +402,7 @@ def create_system_message(room: ChatRoom, content: str, metadata: dict | None = 
         metadata=metadata,
     )
     room.messages.append(message)
-    room.updated_at = datetime.utcnow()
+    room.updated_at = datetime.now(timezone.utc)
     return message
 
 

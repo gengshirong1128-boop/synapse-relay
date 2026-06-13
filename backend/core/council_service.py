@@ -64,10 +64,10 @@ class CouncilService:
         if mode == "ask":
             return [chief] if chief else enabled[:1]
         if mode == "final":
-            picked = [chief, by_id.get("hanlin"), by_id.get("censorate")]
+            picked = [chief, by_id.get("hanlinyuan"), by_id.get("duchayuan")]
             return [m for m in picked if m][:5]
         if mode == "council":
-            picked = [by_id.get("silijian"), by_id.get("gongbu"), by_id.get("libu"), by_id.get("censorate"), chief]
+            picked = [by_id.get("silijian"), by_id.get("gongbu"), by_id.get("libu"), by_id.get("duchayuan"), chief]
             return [m for m in picked if m][:5]
         # continue/default
         picked = enabled[:5]
@@ -80,15 +80,21 @@ class CouncilService:
             return "chief"
         if minister.id in {"gongbu"}:
             return "code"
-        if minister.id in {"censorate"}:
+        if minister.id in {"duchayuan"}:
             return "review"
-        if minister.id in {"hanlin", "silijian"}:
+        if minister.id in {"hanlinyuan", "silijian"}:
             return "summary"
         if minister.id in {"libu"}:
             return "translation"
         return "summary"
 
-    def submit_memorial(self, payload: dict[str, Any], provider=None, provider_resolver=None) -> dict[str, Any]:
+    def submit_memorial(
+        self,
+        payload: dict[str, Any],
+        provider=None,
+        provider_resolver=None,
+        explicit_ministers: list[Minister] | None = None,
+    ) -> dict[str, Any]:
         _provider = provider or self.provider
         conversation = self.get_conversation(payload["conversationId"])
         content = payload.get("content", "").strip()
@@ -118,11 +124,16 @@ class CouncilService:
 
         mode = payload.get("discussionMode") or payload.get("mode") or conversation.discussionMode
         conversation.discussionMode = mode
-        active = self.select_active_ministers(conversation, mode, payload.get("selectedMinisterIds"))
-        profile_id = payload.get("profileId", "")
-        if profile_id:
-            active = [replace(m, apiProfileId=profile_id) for m in active]
+        if explicit_ministers:
+            # Caller built the exact roster (e.g. /api/debate from frontend members).
+            # Trust it verbatim so user selections and custom members are never silently dropped.
+            active = explicit_ministers
         else:
+            active = self.select_active_ministers(conversation, mode, payload.get("selectedMinisterIds"))
+        profile_id = payload.get("profileId", "")
+        if profile_id and not explicit_ministers:
+            active = [replace(m, apiProfileId=profile_id) for m in active]
+        elif not explicit_ministers:
             assignments = ai_member_settings_store.get().get("roleAssignments", {})
             patched_active: list[Minister] = []
             for minister in active:

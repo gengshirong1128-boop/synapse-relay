@@ -3,7 +3,7 @@
 import secrets
 import shutil
 import subprocess
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -20,7 +20,7 @@ class _RunStore:
         self._confirm_tokens[token] = {
             "executor_type": executor_type,
             "project_path": str(Path(project_path).resolve()),
-            "expires_at": datetime.utcnow() + timedelta(minutes=10),
+            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10),
         }
         return token
 
@@ -32,7 +32,7 @@ class _RunStore:
             return False
         if data["project_path"] != str(Path(project_path).resolve()):
             return False
-        if data["expires_at"] < datetime.utcnow():
+        if data["expires_at"] < datetime.now(timezone.utc):
             return False
         return True
 
@@ -122,7 +122,7 @@ def _new_run_record(request: ExecutorRunRequest, command: list[str], prompt_file
         "project_path": request.project_path,
         "prompt_file": prompt_file,
         "command_preview": command,
-        "started_at": datetime.utcnow().isoformat(),
+        "started_at": datetime.now(timezone.utc).isoformat(),
         "finished_at": None,
         "exit_code": None,
         "stdout_excerpt": "",
@@ -187,13 +187,13 @@ def run_executor(request: ExecutorRunRequest, room_project_path: str) -> Executo
     if request.dry_run:
         if not check["installed"]:
             result.error = f"{binary} is not available on this machine. Preview only."
-        run_record["finished_at"] = datetime.utcnow().isoformat()
+        run_record["finished_at"] = datetime.now(timezone.utc).isoformat()
         run_store.add_run(run_record)
         return result
 
     if not check["installed"]:
         result.error = f"{binary} is not available on this machine."
-        run_record["finished_at"] = datetime.utcnow().isoformat()
+        run_record["finished_at"] = datetime.now(timezone.utc).isoformat()
         run_record["stderr_excerpt"] = result.error
         run_store.add_run(run_record)
         return result
@@ -206,7 +206,7 @@ def run_executor(request: ExecutorRunRequest, room_project_path: str) -> Executo
         result.error = "confirmation_token is required for non-dry-run execution."
         result.require_confirmation_token = True
         result.confirmation_hint = "Call POST /executor/run/confirm first, then retry with returned token."
-        run_record["finished_at"] = datetime.utcnow().isoformat()
+        run_record["finished_at"] = datetime.now(timezone.utc).isoformat()
         run_record["stderr_excerpt"] = result.error
         run_store.add_run(run_record)
         return result
@@ -235,6 +235,6 @@ def run_executor(request: ExecutorRunRequest, room_project_path: str) -> Executo
         result.error = str(exc)
         run_record["stderr_excerpt"] = result.error
 
-    run_record["finished_at"] = datetime.utcnow().isoformat()
+    run_record["finished_at"] = datetime.now(timezone.utc).isoformat()
     run_store.add_run(run_record)
     return result

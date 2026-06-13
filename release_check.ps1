@@ -5,6 +5,11 @@
 )
 
 $ErrorActionPreference = "Stop"
+$npmCommand = if ($env:OS -eq "Windows_NT") {
+  (Get-Command "npm.cmd" -ErrorAction Stop).Source
+} else {
+  (Get-Command "npm" -ErrorAction Stop).Source
+}
 
 function Write-Pass($msg) { Write-Host "[PASS] $msg" -ForegroundColor Green }
 function Write-Fail($msg) { Write-Host "[FAIL] $msg" -ForegroundColor Red }
@@ -72,8 +77,7 @@ if (Test-Path "requirements.txt") {
 if (Test-Path ".env") {
   Write-Pass ".env exists"
 } else {
-  Write-Fail ".env missing (copy from .env.example)"
-  $failed = $true
+  Write-Info ".env missing; Mock mode remains available and release artifacts stay secret-free"
 }
 
 if ($InstallDeps) {
@@ -88,9 +92,10 @@ $requiredFiles = @(
   "README.md",
   "LICENSE",
   ".gitignore",
+  ".env.example",
   "start_windows.bat",
   "launch.py",
-  "frontend/index.html",
+  "内阁-ai-app/index.html",
   "backend/main.py"
 )
 
@@ -105,13 +110,23 @@ if ($QuickCheck) {
     "scripts\validate_all.py",
     "scripts\validate_profile_format.py",
     "scripts\validate_app_targets.py",
-    "scripts\validate_desktop_skeleton.py"
+    "scripts\validate_desktop_skeleton.py",
+    "scripts\validate_secret_scan.py"
   )
 
   foreach ($script in $scripts) {
     $ok = Run-WithTimeout -FilePath "python" -ArgumentList @($script) -TimeoutSec $StepTimeoutSeconds -Name "python $script"
     if (-not $ok) { $failed = $true }
   }
+
+  $pytestOk = Run-WithTimeout -FilePath "python" -ArgumentList @("-m", "pytest", "backend/tests", "-q") -TimeoutSec $StepTimeoutSeconds -Name "backend tests"
+  if (-not $pytestOk) { $failed = $true }
+
+  $lintOk = Run-WithTimeout -FilePath $npmCommand -ArgumentList @("run", "lint", "--prefix", "内阁-ai-app") -TimeoutSec $StepTimeoutSeconds -Name "frontend lint"
+  if (-not $lintOk) { $failed = $true }
+
+  $buildOk = Run-WithTimeout -FilePath $npmCommand -ArgumentList @("run", "build", "--prefix", "内阁-ai-app") -TimeoutSec $StepTimeoutSeconds -Name "frontend build"
+  if (-not $buildOk) { $failed = $true }
 }
 
 if ($failed) {

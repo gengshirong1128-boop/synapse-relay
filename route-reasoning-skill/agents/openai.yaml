@@ -1,0 +1,8 @@
+interface:
+  display_name: "Decision Cabinet"
+  short_description: "Debate routes, veto risks, and issue auditable decisions"
+  brand_color: "#2563EB"
+  default_prompt: "Use $route-reasoning-skill to convene a decision cabinet, preserve dissent, apply risk vetoes, and issue an auditable DecisionReceipt."
+
+policy:
+  allow_implicit_invocation: true

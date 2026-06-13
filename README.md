@@ -4,6 +4,28 @@
 
 项目默认支持 Mock 模式，无 API Key 也能体验基础流程。真实模型调用可通过 CC Switch、本地中转站或 OpenAI-compatible API 接入。
 
+## English Overview
+
+Synapse Relay is a local-first multi-AI collaboration desktop app. It combines model providers, CC Switch, local coding CLIs, project context, reusable Skills, structured debate, and final execution handoff in one workflow.
+
+Why it is useful:
+
+- Local-first: Mock mode works without an API key; runtime secrets and user data stay out of Git.
+- Provider-flexible: use CC Switch or OpenAI-compatible endpoints instead of locking the workflow to one model vendor.
+- Execution-oriented: discussions end with a concrete decision and a handoff to a local coding Agent.
+- Verifiable: release checks cover backend tests, frontend type checking/build, workflow validators, secret scanning, and desktop packaging.
+
+## 可复现发布数据 / Reproducible Release Evidence
+
+以下数据来自仓库内命令，不是营销估算：
+
+- Backend test suite：`102` tests
+- Frontend production build：`1691` modules transformed，gzip JavaScript 约 `138 kB`
+- Route Reasoning Skill：`37` decision cards，`13` scenario test cases
+- Claude Cabinet：`15/15` deterministic routing cases；示例路线比全程 Fable 估算低 `62.93%`
+
+“能火”不能由代码保证；这些数据能让用户快速验证价值、降低试用成本，并让 GitHub 项目更容易被信任和传播。
+
 ## 核心功能
 
 ### 多 AI 会审与私聊

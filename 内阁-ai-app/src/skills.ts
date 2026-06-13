@@ -35,7 +35,7 @@ export const DEFAULT_SKILLS: Skill[] = [
   {
     id: 'skill_general_reasoning',
     name: '综合判断',
-    role: '首辅 / 协调',
+    role: '统筹 / 协调',
     description: '拆解目标、统一约束、协调不同意见并形成行动方案。',
     outputFormat: '目标 / 约束 / 方案 / 下一步',
     prompt: '你负责综合判断。先识别目标、约束和风险，再拆分任务，比较方案，最终输出明确、可执行、可验证的下一步。不要给空泛建议。',

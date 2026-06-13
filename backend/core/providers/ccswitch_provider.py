@@ -48,6 +48,23 @@ class CCSwitchProvider(OpenAICompatibleCouncilProvider):
         return cls._output_text(completed or {}) or "".join(deltas).strip()
 
     def _request(self, *, messages: list[dict[str, str]], config: dict[str, Any], max_tokens: int) -> str:
+        if str(config["model"]).lower().startswith("claude"):
+            request_order = (self._request_messages, self._request_responses)
+        else:
+            request_order = (self._request_responses, self._request_messages)
+
+        first_error: Exception | None = None
+        for request_method in request_order:
+            try:
+                return request_method(messages=messages, config=config, max_tokens=max_tokens)
+            except (httpx.HTTPError, ValueError, KeyError) as exc:
+                if first_error is None:
+                    first_error = exc
+        if first_error is not None:
+            raise first_error
+        raise RuntimeError("cc_switch_route_unavailable")
+
+    def _request_responses(self, *, messages: list[dict[str, str]], config: dict[str, Any], max_tokens: int) -> str:
         api_key = self._api_key(config["env_name"]) or "cc-switch-local-routing"
         input_items = [
             {
@@ -75,3 +92,33 @@ class CCSwitchProvider(OpenAICompatibleCouncilProvider):
             if "text/event-stream" in content_type or response.text.lstrip().startswith("event:"):
                 return self._sse_output_text(response.text)
             return self._output_text(response.json())
+
+    def _request_messages(self, *, messages: list[dict[str, str]], config: dict[str, Any], max_tokens: int) -> str:
+        api_key = self._api_key(config["env_name"]) or "cc-switch-local-routing"
+        system_parts = [item.get("content", "") for item in messages if item.get("role") == "system"]
+        message_items = [
+            {"role": item.get("role", "user"), "content": item.get("content", "")}
+            for item in messages
+            if item.get("role") != "system"
+        ]
+        body: dict[str, Any] = {
+            "model": config["model"],
+            "messages": message_items,
+            "max_tokens": max_tokens,
+        }
+        if system_parts:
+            body["system"] = "\n\n".join(system_parts)
+        body.update(config.get("extra_body") or {})
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+            **(config.get("headers") or {}),
+        }
+        with httpx.Client(timeout=max(config["timeout_seconds"], 5)) as client:
+            response = client.post(f"{config['base_url']}/messages", headers=headers, json=body)
+            response.raise_for_status()
+            data = response.json()
+        parts = data.get("content", []) if isinstance(data, dict) else []
+        return "".join(str(item.get("text", "")) for item in parts if isinstance(item, dict)).strip()

@@ -130,7 +130,10 @@ class TestUtilityEndpoints:
                 return None
 
             def post(self, url, headers, json):
-                assert url == "http://127.0.0.1:15721/v1/responses"
+                assert url in {
+                    "http://127.0.0.1:15721/v1/responses",
+                    "http://127.0.0.1:15721/v1/messages",
+                }
                 return FakeResponse()
 
         monkeypatch.setattr(main_module.httpx, "Client", FakeClient)
@@ -138,6 +141,29 @@ class TestUtilityEndpoints:
         assert resp.status_code == 200
         assert resp.json()["routeReady"] is False
         assert "base_url" in resp.json()["message"]
+
+    def test_ccswitch_saved_providers_are_exposed_without_keys(self, client: TestClient, monkeypatch):
+        import backend.main as main_module
+
+        monkeypatch.setattr(
+            main_module,
+            "sync_ccswitch_providers",
+            lambda: [{
+                "id": "provider-1",
+                "name": "Saved Provider",
+                "appType": "claude",
+                "isCurrent": True,
+                "baseUrl": "https://example.test",
+                "model": "claude-test",
+                "profileId": "ccswitch_import_test",
+                "keyAvailable": True,
+            }],
+        )
+        resp = client.get("/api/ccswitch/providers")
+        assert resp.status_code == 200
+        provider = resp.json()["providers"][0]
+        assert provider["profileId"] == "ccswitch_import_test"
+        assert "apiKey" not in provider
 
     def test_ccswitch_route_test_falls_back_to_working_model(self, client: TestClient, monkeypatch):
         import backend.main as main_module

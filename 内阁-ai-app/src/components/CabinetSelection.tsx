@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CabinetMember } from '../types';
 import { Check, Cpu, Hammer, Plus, Edit2, Trash2, X } from 'lucide-react';
 import { SafeAvatar } from './SafeAvatar';
@@ -22,6 +22,16 @@ interface CabinetSelectionProps {
   visualMode: 'cabinet' | 'un';
   theme?: 'light' | 'dark';
 }
+
+type CCSwitchProviderOption = {
+  id: string;
+  name: string;
+  appType: string;
+  isCurrent: boolean;
+  baseUrl: string;
+  model: string;
+  profileId: string;
+};
 
 export const CabinetSelection: React.FC<CabinetSelectionProps> = ({
   members,
@@ -45,6 +55,51 @@ export const CabinetSelection: React.FC<CabinetSelectionProps> = ({
   const [showMinisterForm, setShowMinisterForm] = useState(false);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [ministerForm, setMinisterForm] = useState<Partial<CabinetMember>>({});
+  const [ccSwitchProviders, setCCSwitchProviders] = useState<CCSwitchProviderOption[]>([]);
+  const [ccSwitchMessage, setCCSwitchMessage] = useState('');
+  const [ccSwitchTestStatus, setCCSwitchTestStatus] = useState<Record<string, 'testing' | 'success' | 'failed'>>({});
+
+  useEffect(() => {
+    fetch('/api/ccswitch/providers')
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+        setCCSwitchProviders(Array.isArray(data.providers) ? data.providers : []);
+        setCCSwitchMessage('');
+      })
+      .catch((error) => {
+        setCCSwitchProviders([]);
+        // Only show a warning if it's a real error, not just the backend being down
+        if (error?.message && !error.message.includes('Failed to fetch')) {
+          setCCSwitchMessage(`无法读取 CC Switch Provider：${error?.message || 'unknown error'}`);
+        }
+      });
+  }, []);
+
+  const applyCCSwitchProvider = (member: CabinetMember, profileId: string) => {
+    const selected = ccSwitchProviders.find((item) => item.profileId === profileId);
+    if (!selected) {
+      onUpdateMember?.(member.id, { apiProfileId: '', providerId: '', modelId: '' });
+      return;
+    }
+    onUpdateMember?.(member.id, {
+      apiProfileId: selected.profileId,
+      providerId: '',
+      modelId: selected.model,
+    });
+  };
+
+  const testCCSwitchProvider = async (profileId: string) => {
+    if (!profileId) return;
+    setCCSwitchTestStatus((prev) => ({ ...prev, [profileId]: 'testing' }));
+    try {
+      const response = await fetch(`/api/ccswitch/providers/${encodeURIComponent(profileId)}/test`, { method: 'POST' });
+      const data = await response.json();
+      setCCSwitchTestStatus((prev) => ({ ...prev, [profileId]: data.success ? 'success' : 'failed' }));
+    } catch {
+      setCCSwitchTestStatus((prev) => ({ ...prev, [profileId]: 'failed' }));
+    }
+  };
 
   const openAddForm = () => {
     setEditingMemberId(null);
@@ -62,11 +117,23 @@ export const CabinetSelection: React.FC<CabinetSelectionProps> = ({
     setShowMinisterForm(true);
   };
 
+  const handleMinistryChange = (ministry: CabinetMember['ministry']) => {
+    const suggestedSkill = MINISTRY_SKILLS[ministry];
+    setMinisterForm(prev => ({
+      ...prev,
+      ministry,
+      ...(suggestedSkill ? { skillId: suggestedSkill } : {}),
+    }));
+  };
+
   const saveMinister = () => {
     if (!ministerForm.name) return;
     const form = ministerForm as CabinetMember;
+    // Ensure skill is set based on ministry if not manually set
+    const finalSkillId = form.skillId || MINISTRY_SKILLS[form.ministry] || 'skill_general_reasoning';
+
     if (editingMemberId) {
-      onUpdateMember?.(editingMemberId, form);
+      onUpdateMember?.(editingMemberId, { ...form, skillId: finalSkillId });
     } else {
       const newMember: CabinetMember = {
         id: `member_${Date.now()}`,
@@ -78,9 +145,10 @@ export const CabinetSelection: React.FC<CabinetSelectionProps> = ({
         role: form.role || 'none',
         ministry: form.ministry || 'none',
         badge: form.badge || '自定义',
-        skillId: form.skillId || 'skill_general_reasoning',
+        skillId: finalSkillId,
         providerId: form.providerId || '',
         modelId: form.modelId || '',
+        apiProfileId: form.apiProfileId || '',
         localToolId: form.localToolId || '',
         avatarType: 'provider',
         isDefault: false,
@@ -105,12 +173,12 @@ export const CabinetSelection: React.FC<CabinetSelectionProps> = ({
           {visualMode === 'cabinet' ? '机要内阁・就位就绪' : '内阁机要・系统就绪'}
         </div>
         <h1 className={`text-3xl font-bold tracking-tight font-display mb-3 ${isLight ? 'text-stone-900' : 'text-stone-100'}`}>
-          {visualMode === 'cabinet' ? '🏛️ 帝制内阁成员遴选' : '🏛️ 智能内阁成员遴选'}
+          {visualMode === 'cabinet' ? '🏛️ 帝制内阁成员遴选' : '👥 选择参与成员'}
         </h1>
         <p className={`text-sm max-w-2xl leading-relaxed ${isLight ? 'text-stone-600' : 'text-stone-400'}`}>
-          {visualMode === 'cabinet' 
+          {visualMode === 'cabinet'
             ? '从通用推理模型及本地特定工部工具中，遴选群臣入阁。指定首辅大臣与阁臣归属，拟定帝制决策的核心廷议阵容。'
-            : '从通用推理模型及本地执行工具中，遴选群臣入阁。指定首辅大臣与阁臣归属，拟定核心廷议阵容。'}
+            : '从可用 AI 模型和本地工具中选择参与成员，指定召集人并分配角色，组建本次讨论的阵容。'}
         </p>
       </div>
 
@@ -119,7 +187,7 @@ export const CabinetSelection: React.FC<CabinetSelectionProps> = ({
         <div className={`flex items-center gap-2 mb-4 pb-2 border-b ${isLight ? 'border-stone-200' : 'border-stone-800'}`}>
           <Cpu className="w-5 h-5 text-amber-500" />
           <h2 className={`text-lg font-semibold tracking-tight font-display ${isLight ? 'text-stone-805' : 'text-stone-200'}`}>
-            {visualMode === 'cabinet' ? '备选 AI 大模型 (阁臣/议政官员)' : '备选 AI 大模型 (内阁大臣)'}
+            {visualMode === 'cabinet' ? '备选 AI 大模型 (阁臣/议政官员)' : '可选 AI 模型'}
           </h2>
         </div>
 
@@ -183,6 +251,40 @@ export const CabinetSelection: React.FC<CabinetSelectionProps> = ({
                   <p className={`text-xs line-clamp-2 leading-relaxed mb-3 ${isLight ? 'text-stone-500' : 'text-stone-400'}`}>
                     {member.desc || '通用高级多模态及推理辅助，提供军机策论的深度见解。'}
                   </p>
+                  <label className="block space-y-1">
+                    <span className="text-[10px] font-bold text-stone-500">CC Switch API</span>
+                    <div className="flex gap-1.5">
+                      <select
+                        value={member.apiProfileId?.startsWith('ccswitch_import_') ? member.apiProfileId : ''}
+                        onChange={(event) => applyCCSwitchProvider(member, event.target.value)}
+                        className={`min-w-0 flex-1 rounded-lg border px-2 py-1.5 text-[11px] outline-none ${
+                          isLight ? 'bg-white border-stone-200 text-stone-700' : 'bg-stone-950 border-stone-800 text-stone-200'
+                        }`}
+                      >
+                        <option value="">未选择 / 使用原配置</option>
+                        {ccSwitchProviders.map((provider) => (
+                          <option key={provider.profileId} value={provider.profileId}>
+                            {provider.isCurrent ? '● ' : ''}{provider.name} · {provider.appType} · {provider.model}
+                          </option>
+                        ))}
+                      </select>
+                      {member.apiProfileId?.startsWith('ccswitch_import_') && (
+                        <button
+                          type="button"
+                          onClick={() => void testCCSwitchProvider(member.apiProfileId || '')}
+                          className={`shrink-0 rounded-lg border px-2 text-[10px] font-bold ${
+                            ccSwitchTestStatus[member.apiProfileId] === 'success'
+                              ? 'border-emerald-500/30 text-emerald-500'
+                              : ccSwitchTestStatus[member.apiProfileId] === 'failed'
+                                ? 'border-rose-500/30 text-rose-500'
+                                : 'border-amber-500/30 text-amber-500'
+                          }`}
+                        >
+                          {ccSwitchTestStatus[member.apiProfileId] === 'testing' ? '测试中' : ccSwitchTestStatus[member.apiProfileId] === 'success' ? '可用' : ccSwitchTestStatus[member.apiProfileId] === 'failed' ? '失败' : '测试'}
+                        </button>
+                      )}
+                    </div>
+                  </label>
                 </div>
               </div>
 
@@ -420,6 +522,7 @@ export const CabinetSelection: React.FC<CabinetSelectionProps> = ({
           {visualMode === 'cabinet' ? '新增大臣' : '新增大臣'}
         </button>
       </div>
+      {ccSwitchMessage && <p className="mb-4 text-center text-[11px] text-rose-500">{ccSwitchMessage}</p>}
 
       {/* Floating or Footer action bar */}
       <div className={`sticky bottom-4 left-0 right-0 border p-4 rounded-xl flex items-center justify-between transition-colors duration-300 z-10 ${
@@ -437,7 +540,7 @@ export const CabinetSelection: React.FC<CabinetSelectionProps> = ({
               : 'bg-stone-800 text-stone-505 cursor-not-allowed opacity-50'
           }`}
         >
-          {visualMode === 'cabinet' ? '继续并新建廷议会话 ➔' : '继续并新建廷议会话 ➔'}
+          {visualMode === 'cabinet' ? '继续并新建廷议会话 ➔' : '继续并新建会话 ➔'}
         </button>
       </div>
 
@@ -505,8 +608,27 @@ export const CabinetSelection: React.FC<CabinetSelectionProps> = ({
                 <input value={ministerForm.avatar || ''} onChange={e => setMinisterForm({...ministerForm, avatar: e.target.value})} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none ${isLight ? 'bg-stone-50 border-stone-200' : 'bg-stone-950 border-stone-800'}`} placeholder="留空则自动生成" />
               </label>
               <label className="space-y-1">
-                <span className="text-[10px] font-bold text-stone-500">Provider ID</span>
-                <input value={ministerForm.providerId || ''} onChange={e => setMinisterForm({...ministerForm, providerId: e.target.value})} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none ${isLight ? 'bg-stone-50 border-stone-200' : 'bg-stone-950 border-stone-800'}`} placeholder="openai / deepseek / claude / ..." />
+                <span className="text-[10px] font-bold text-stone-500">CC Switch API</span>
+                <select
+                  value={ministerForm.apiProfileId?.startsWith('ccswitch_import_') ? ministerForm.apiProfileId : ''}
+                  onChange={e => {
+                    const selected = ccSwitchProviders.find((item) => item.profileId === e.target.value);
+                    setMinisterForm({
+                      ...ministerForm,
+                      apiProfileId: selected?.profileId || '',
+                      providerId: selected ? 'ccswitch' : '',
+                      modelId: selected?.model || '',
+                    });
+                  }}
+                  className={`w-full rounded-lg border px-3 py-2 text-xs outline-none ${isLight ? 'bg-stone-50 border-stone-200' : 'bg-stone-950 border-stone-800'}`}
+                >
+                  <option value="">未选择 / 手动配置</option>
+                  {ccSwitchProviders.map((provider) => (
+                    <option key={provider.profileId} value={provider.profileId}>
+                      {provider.isCurrent ? '● ' : ''}{provider.name} · {provider.appType} · {provider.model}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="space-y-1">
                 <span className="text-[10px] font-bold text-stone-500">模型 ID</span>

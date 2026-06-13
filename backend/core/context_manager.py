@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from backend.core.token_meter import estimate_payload_tokens
 from backend.schemas import (
@@ -76,7 +76,7 @@ class ContextManager:
                     compacted_summary=member.compacted_summary,
                 )
             )
-        room.updated_at = datetime.utcnow()
+        room.updated_at = datetime.now(timezone.utc)
         return ContextUsageResponse(room_id=room.room_id, agents=usages)
 
     def compact_agent_context(self, room: ChatRoom, agent_id: str) -> str:
@@ -105,7 +105,7 @@ class ContextManager:
         )
 
         member.compacted_summary = summary
-        member.last_compacted_at = datetime.utcnow()
+        member.last_compacted_at = datetime.now(timezone.utc)
         return summary
 
     def compact_room_context(self, room: ChatRoom) -> ContextUsageResponse:

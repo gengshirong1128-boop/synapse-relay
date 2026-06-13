@@ -120,6 +120,37 @@ class CredentialStore:
             credential.key_available = False
         return credential
 
+    def upsert_runtime(
+        self,
+        *,
+        credential_id: str,
+        provider: str,
+        name: str,
+        env_name: str,
+        api_key: str,
+        default_model: str = "",
+        base_url: str = "",
+    ) -> Credential:
+        credential = self._credentials.get(credential_id)
+        if credential is None:
+            credential = Credential(
+                credential_id=credential_id,
+                provider=provider,
+                name=name,
+                api_key_env_name=env_name,
+                base_url=base_url or None,
+                default_model=default_model or None,
+                enabled=True,
+            )
+            self._credentials[credential_id] = credential
+        else:
+            credential.provider = provider
+            credential.name = name
+            credential.base_url = base_url or None
+            credential.default_model = default_model or None
+            credential.enabled = True
+        return self.set_runtime_key(credential_id, api_key, env_name)
+
     def reload(self) -> list[Credential]:
         for credential in self._credentials.values():
             if credential.provider == "mock":

@@ -1,0 +1,33 @@
+name: Route Reasoning Skill
+
+on:
+  push:
+    paths:
+      - "route-reasoning-skill/**"
+      - ".github/workflows/route-reasoning-skill.yml"
+  pull_request:
+    paths:
+      - "route-reasoning-skill/**"
+      - ".github/workflows/route-reasoning-skill.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: route-reasoning-skill
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate skill package
+        run: python scripts/validate_skill.py
+      - name: Evaluate passing fixture
+        run: python scripts/evaluate_output.py tests/fixtures/passing-route-output.md
+      - name: Reject fluffy fixture
+        run: |
+          if python scripts/evaluate_output.py tests/fixtures/failing-fluffy-output.md; then
+            echo "Expected failing fixture to be rejected"
+            exit 1
+          fi

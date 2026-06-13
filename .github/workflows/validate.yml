@@ -1,0 +1,27 @@
+name: Validate Synapse Relay
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: 内阁-ai-app/package-lock.json
+      - run: pip install -r requirements.txt
+      - run: npm ci --prefix 内阁-ai-app
+      - run: python -m pytest backend/tests -q
+      - run: npm run lint --prefix 内阁-ai-app
+      - run: npm run build --prefix 内阁-ai-app
+      - run: npm run validate
+      - run: python scripts/validate_secret_scan.py

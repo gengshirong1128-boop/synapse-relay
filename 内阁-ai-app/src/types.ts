@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type ViewType = 'selection' | 'new-session' | 'meeting' | 'columns' | 'settings' | 'tools' | 'folder-reader' | 'image-studio' | 'issue-report';
+export type ViewType = 'selection' | 'new-session' | 'meeting' | 'columns' | 'settings' | 'tools' | 'folder-reader' | 'image-studio' | 'issue-report' | 'auto-debate';
 export type VisualModeType = 'cabinet' | 'un';
 
 export interface CabinetMember {

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CabinetMember, VisualModeType } from '../types';
 import {
   PlusCircle, ArrowLeft, ArrowRight, MessageSquare,
@@ -24,6 +24,15 @@ interface NewSessionProps {
   theme?: 'light' | 'dark';
 }
 
+type CCSwitchProviderOption = {
+  name: string;
+  appType: string;
+  isCurrent: boolean;
+  baseUrl: string;
+  model: string;
+  profileId: string;
+};
+
 export const NewSession: React.FC<NewSessionProps> = ({
   onBack,
   onStartSession,
@@ -39,9 +48,27 @@ export const NewSession: React.FC<NewSessionProps> = ({
 
   const [customTitle, setCustomTitle] = useState('');
   const [customPrompt, setCustomPrompt] = useState('');
+  const [ccSwitchProviders, setCCSwitchProviders] = useState<CCSwitchProviderOption[]>([]);
 
   const isLight = theme === 'light' && visualMode === 'un';
   const isZh = true; // UI language handled by parent
+
+  useEffect(() => {
+    fetch('/api/ccswitch/providers')
+      .then((response) => response.json())
+      .then((data) => setCCSwitchProviders(Array.isArray(data.providers) ? data.providers : []))
+      .catch(() => setCCSwitchProviders([]));
+  }, []);
+
+  const setMemberCCSwitchProvider = (memberId: string, profileId: string) => {
+    const selected = ccSwitchProviders.find((item) => item.profileId === profileId);
+    setLocalMembers((prev) => prev.map((member) => member.id === memberId ? {
+      ...member,
+      apiProfileId: selected?.profileId || '',
+      providerId: '',
+      modelId: selected?.model || '',
+    } : member));
+  };
 
   const autoAllocatePositions = (selected: CabinetMember[], mode: 'private' | 'meeting'): CabinetMember[] => {
     if (mode === 'private') {
@@ -90,10 +117,10 @@ export const NewSession: React.FC<NewSessionProps> = ({
       <div className="text-center shrink-0 mb-4">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-600/10 text-amber-500 border border-amber-600/20 text-[10px] font-semibold tracking-wider uppercase mb-2">
           <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span>
-          {step === 'mode' ? '选择会话模式' : step === 'members' ? '遴选阁臣' : '拟诏议题'}
+          {step === 'mode' ? '选择会话模式' : step === 'members' ? '选择成员' : '设置议题'}
         </div>
         <h1 className={`text-2xl font-extrabold tracking-tight font-display ${isLight ? 'text-stone-900' : 'text-stone-100'}`}>
-          {visualMode === 'cabinet' ? '📜 开辟新廷本' : '👥 新建群臣会商'}
+          {visualMode === 'cabinet' ? '📜 开辟新廷本' : '👥 新建会话'}
         </h1>
       </div>
 
@@ -118,10 +145,10 @@ export const NewSession: React.FC<NewSessionProps> = ({
                   <MessageSquare className="w-5 h-5" />
                 </div>
                 <h3 className={`text-sm font-bold font-display mb-2 group-hover:text-amber-500 transition-colors ${isLight ? 'text-stone-800' : 'text-stone-100'}`}>
-                  💬 私聊密谈模式
+                  💬 私聊模式
                 </h3>
                 <p className={`text-xs leading-relaxed ${isLight ? 'text-stone-500' : 'text-stone-400'}`}>
-                  单独传召一位阁臣进行一对一深谈。
+                  与单个成员一对一深入对话。
                 </p>
               </div>
               <span className="text-[10px] text-amber-500 font-mono tracking-wider font-semibold block">进入私聊 ➔</span>
@@ -143,10 +170,10 @@ export const NewSession: React.FC<NewSessionProps> = ({
                   <Users className="w-5 h-5" />
                 </div>
                 <h3 className={`text-sm font-bold font-display mb-2 group-hover:text-amber-500 transition-colors ${isLight ? 'text-stone-800' : 'text-stone-100'}`}>
-                  🏛️ 群聊廷议模式
+                  🏛️ 会审模式（多 Agent 讨论）
                 </h3>
                 <p className={`text-xs leading-relaxed ${isLight ? 'text-stone-500' : 'text-stone-400'}`}>
-                  委命多位阁臣，分配六部职位，进行多轮廷议辩析。
+                  选择多个成员并分配角色，进行多轮讨论与质询。
                 </p>
               </div>
               <span className="text-[10px] text-amber-500 font-mono tracking-wider font-semibold block">进入群聊 ➔</span>
@@ -174,6 +201,19 @@ export const NewSession: React.FC<NewSessionProps> = ({
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold truncate">{m.name}</div>
                   <div className="text-[10px] text-stone-500">{m.badge}</div>
+                  <select
+                    value={m.apiProfileId?.startsWith('ccswitch_import_') ? m.apiProfileId : ''}
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) => setMemberCCSwitchProvider(m.id, event.target.value)}
+                    className={`mt-2 w-full rounded-lg border px-2 py-1 text-[10px] outline-none ${isLight ? 'bg-white border-stone-200' : 'bg-stone-950 border-stone-800'}`}
+                  >
+                    <option value="">未选择 CC Switch API</option>
+                    {ccSwitchProviders.map((provider) => (
+                      <option key={provider.profileId} value={provider.profileId}>
+                        {provider.isCurrent ? '● ' : ''}{provider.name} · {provider.appType} · {provider.model} · {provider.baseUrl}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 {m.selected && <Check className="w-5 h-5 text-amber-500" />}
               </div>
@@ -184,6 +224,21 @@ export const NewSession: React.FC<NewSessionProps> = ({
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold truncate">{m.name}</div>
                   <div className="text-[10px] text-stone-500">{m.badge}</div>
+                  {m.type === 'custom' && (
+                    <select
+                      value={m.apiProfileId?.startsWith('ccswitch_import_') ? m.apiProfileId : ''}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => setMemberCCSwitchProvider(m.id, event.target.value)}
+                      className={`mt-2 w-full rounded-lg border px-2 py-1 text-[10px] outline-none ${isLight ? 'bg-white border-stone-200' : 'bg-stone-950 border-stone-800'}`}
+                    >
+                      <option value="">未选择 CC Switch API</option>
+                      {ccSwitchProviders.map((provider) => (
+                        <option key={provider.profileId} value={provider.profileId}>
+                          {provider.isCurrent ? '● ' : ''}{provider.name} · {provider.appType} · {provider.model} · {provider.baseUrl}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 {m.selected && <Check className="w-5 h-5 text-amber-500" />}
               </div>
@@ -214,35 +269,35 @@ export const NewSession: React.FC<NewSessionProps> = ({
 
             <div className={`border rounded-2xl p-5 space-y-4 shadow ${isLight ? 'bg-white border-stone-200' : 'bg-stone-900 border-stone-800'}`}>
               <div>
-                <label className="block text-[10px] font-mono mb-1.5 uppercase tracking-wider text-stone-500">廷议标题</label>
+                <label className="block text-[10px] font-mono mb-1.5 uppercase tracking-wider text-stone-500">会话标题</label>
                 <input
                   type="text"
                   value={customTitle}
                   onChange={e => setCustomTitle(e.target.value)}
-                  placeholder="例：关于塞外诸部互市之税额议事录"
+                  placeholder="例：是否给项目引入缓存层"
                   className={`w-full text-xs rounded-xl p-3 focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600 transition ${isLight ? 'bg-stone-50 border border-stone-200 text-stone-800' : 'bg-stone-950 border border-stone-800 text-stone-100'}`}
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono mb-1.5 uppercase tracking-wider text-stone-500">圣谕/询问内容 *</label>
+                <label className="block text-[10px] font-mono mb-1.5 uppercase tracking-wider text-stone-500">议题 / 背景 *</label>
                 <textarea
                   value={customPrompt}
                   onChange={e => setCustomPrompt(e.target.value)}
                   rows={5}
-                  placeholder="在此书写圣上旨意或敕令课题..."
+                  placeholder="在此输入要讨论的问题或背景..."
                   className={`w-full text-xs rounded-xl p-3 focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600 transition resize-none leading-relaxed ${isLight ? 'bg-stone-50 border border-stone-200 text-stone-800' : 'bg-stone-950 border border-stone-800 text-stone-100'}`}
                 />
               </div>
 
               {!canStart && customPrompt.trim() === '' && selectedCount >= minRequired && (
-                <p className="text-[10px] text-rose-500">⚠️ 请输入廷议内容</p>
+                <p className="text-[10px] text-rose-500">⚠️ 请输入议题内容</p>
               )}
               {sessionMode === 'meeting' && selectedCount < 2 && (
-                <p className="text-[10px] text-rose-500">⚠️ 群聊模式至少需要选择 2 位大臣</p>
+                <p className="text-[10px] text-rose-500">⚠️ 会审模式至少需要选择 2 位成员</p>
               )}
               {sessionMode === 'private' && selectedCount !== 1 && (
-                <p className="text-[10px] text-rose-500">⚠️ 私聊模式只能选择 1 位大臣</p>
+                <p className="text-[10px] text-rose-500">⚠️ 私聊模式只能选择 1 位成员</p>
               )}
 
               <button
@@ -255,7 +310,7 @@ export const NewSession: React.FC<NewSessionProps> = ({
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>钦命首辅：开朝廷议！</span>
+                <span>开始讨论</span>
               </button>
             </div>
           </div>

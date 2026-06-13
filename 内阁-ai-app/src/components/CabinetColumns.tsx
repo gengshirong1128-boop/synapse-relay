@@ -146,18 +146,18 @@ export const CabinetColumns: React.FC<CabinetColumnsProps> = ({
             className={`px-4 py-2 rounded-xl border text-xs cursor-pointer font-bold transition-all flex items-center gap-1.5 shadow-lg ${buttonClass}`}
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>{visualMode === 'cabinet' ? '返回书殿/廷议' : '返回书殿/廷议'}</span>
+            <span>{visualMode === 'cabinet' ? '返回书殿/廷议' : '返回会话'}</span>
           </button>
-          
+
           <div>
             <h1 className="text-sm font-black font-display flex items-center gap-1.5 leading-none">
               <Layers className="w-4 h-4 text-amber-500" />
-              <span>{visualMode === 'cabinet' ? '九卿分列开案' : '参议列席对观'}</span>
+              <span>{visualMode === 'cabinet' ? '九卿分列开案' : '分栏视图'}</span>
             </h1>
             <p className="text-[10px] mt-1 opacity-75">
-              {visualMode === 'cabinet' 
-                ? '六部尚书奏议各占一卷，首辅赫然居中，实现群臣意见的平行透视与审计。' 
-                : '六部尚书奏议各占一卷，首辅赫然居中，群臣意见平行透视。'}
+              {visualMode === 'cabinet'
+                ? '六部尚书奏议各占一卷，首辅赫然居中，实现群臣意见的平行透视与审计。'
+                : '每位成员的意见各占一栏，便于平行对比与审阅。'}
             </p>
           </div>
         </div>
@@ -222,7 +222,7 @@ export const CabinetColumns: React.FC<CabinetColumnsProps> = ({
                         <div className="flex flex-wrap gap-1 mt-1.5 animate-fadeIn">
                           {isModerator && (
                             <span className="text-[8px] font-bold bg-amber-600 text-stone-95 px-2 py-0.2 rounded-full uppercase tracking-wider font-mono">
-                              {visualMode === 'cabinet' ? '领衔首辅' : '领衔首辅'}
+                              {visualMode === 'cabinet' ? '领衔首辅' : '召集人'}
                             </span>
                           )}
                           {member.ministry !== 'none' && (
@@ -238,12 +238,12 @@ export const CabinetColumns: React.FC<CabinetColumnsProps> = ({
                                    : member.ministry === 'revenue' ? '户部尚书'
                                    : member.ministry === 'punishments' ? '刑部尚书'
                                    : member.ministry === 'archive' ? '文秘史馆' : '吏部尚书')
-                                : (member.ministry === 'war' ? '兵部尚书'
-                                   : member.ministry === 'works' ? '工部尚书'
-                                   : member.ministry === 'rites' ? '礼部尚书'
-                                   : member.ministry === 'revenue' ? '户部尚书'
-                                   : member.ministry === 'punishments' ? '刑部尚书'
-                                   : member.ministry === 'archive' ? '文秘史馆' : '吏部尚书')}
+                                : (member.ministry === 'war' ? '推理'
+                                   : member.ministry === 'works' ? '工程'
+                                   : member.ministry === 'rites' ? '检索'
+                                   : member.ministry === 'revenue' ? '财务'
+                                   : member.ministry === 'punishments' ? '审查'
+                                   : member.ministry === 'archive' ? '归档' : '协调')}
                             </span>
                           )}
                         </div>
@@ -282,7 +282,7 @@ export const CabinetColumns: React.FC<CabinetColumnsProps> = ({
                           className={`p-3 border rounded-xl space-y-2 relative shadow-sm animate-scaleIn ${dialogueCardClass}`}
                         >
                           <div className="flex justify-between text-[8px] font-mono font-bold opacity-60">
-                            <span>{msg.roleLabel || '奏折'}</span>
+                            <span>{msg.roleLabel || '发言'}</span>
                             <span className="text-emerald-650">已送达</span>
                           </div>
                           

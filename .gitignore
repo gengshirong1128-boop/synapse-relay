@@ -12,3 +12,7 @@ dist/
 dist-desktop/
 ui-*.png
 *.zip
+debug.log
+test_debug*.py
+claude-cabinet/
+neige-lite/

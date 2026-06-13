@@ -8,25 +8,33 @@ from backend.core.council_models import Conversation, Message, Minister, Ministe
 class MockProvider:
     def _style_text(self, minister: Minister, memorial: Message) -> str:
         office = minister.office
-        if office == "workflow":
-            return "先将奏折拆解为 3 步：明确目标、收集约束、分派执行。当前议题建议先稳 service 层，再推进 UI。"
-        if office == "engineering":
-            return "建议先固定 API adapter 与 service 契约，避免界面重构牵连调用链。优先清理边界与错误处理。"
-        if office == "ux":
-            return "界面应保持入口分层：输入工具、会话菜单、设置与大臣管理分离。奏折与奏议应成为上朝主体。"
-        if office == "review":
-            return "风险点：删除/清空/移出必须二次确认；多臣并发输出需限流，防止信息噪声。"
-        if office == "writing":
-            return "可将多臣意见归并为可执行简报，并生成面向不同角色的摘要版本。"
-        if office == "cost":
-            return "建议控制每轮参与 3-5 位大臣，降低 token 与时间成本。"
-        if office == "compliance":
-            return "敏感配置应仅保留 apiKeyEnvName，严禁前端保存明文 key。"
-        if office == "execution":
-            return "落地顺序：先测试入口 -> 再接 provider -> 最后接持久化。每步都保留回滚点。"
-        if office == "diagnose":
-            return "建议增加健康检查与回归脚本，优先覆盖 submitMemorial 全链路。"
-        return f"就奏折“{memorial.content[:30]}...”而言，建议先确保流程稳定，再拓展能力。"
+        # Legacy preset offices keep their tailored demo lines.
+        legacy = {
+            "workflow": "先将奏折拆解为 3 步：明确目标、收集约束、分派执行。当前议题建议先稳 service 层，再推进 UI。",
+            "engineering": "建议先固定 API adapter 与 service 契约，避免界面重构牵连调用链。优先清理边界与错误处理。",
+            "ux": "界面应保持入口分层：输入工具、会话菜单、设置与大臣管理分离。奏折与奏议应成为上朝主体。",
+            "review": "风险点：删除/清空/移出必须二次确认；多臣并发输出需限流，防止信息噪声。",
+            "writing": "可将多臣意见归并为可执行简报，并生成面向不同角色的摘要版本。",
+            "cost": "建议控制每轮参与 3-5 位大臣，降低 token 与时间成本。",
+            "compliance": "敏感配置应仅保留 apiKeyEnvName，严禁前端保存明文 key。",
+            "execution": "落地顺序：先测试入口 -> 再接 provider -> 最后接持久化。每步都保留回滚点。",
+            "diagnose": "建议增加健康检查与回归脚本，优先覆盖 submitMemorial 全链路。",
+        }
+        if office in legacy:
+            return legacy[office]
+        # Members built from the frontend roster: echo identity + skill so the
+        # demo shows each member speaking in their own role.
+        topic = (memorial.content or "").strip().replace("\n", " ")[:40]
+        skill_hint = ""
+        if minister.systemPrompt:
+            first_line = next(
+                (ln.strip() for ln in minister.systemPrompt.splitlines()
+                 if ln.strip() and not ln.startswith("你是「")),
+                "",
+            )
+            skill_hint = f" 依「{first_line[:24]}」之责，" if first_line else " "
+        role_word = "统筹诸臣、形成结论" if minister.isChief else "提出本职意见"
+        return f"（{minister.displayName}）就议题“{topic}…”，{skill_hint}{role_word}：建议先明确目标与约束，再给出可验证的下一步。"
 
     def generate_opinion(self, *, minister: Minister, memorial: Message, conversation: Conversation, context: dict) -> MinisterOpinion:
         return MinisterOpinion(

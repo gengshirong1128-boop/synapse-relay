@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -198,6 +199,72 @@ class AIMemberEndpointTests(unittest.TestCase):
         messages = resp.json()["messages"]
         self.assertGreaterEqual(len(messages), 1)
         self.assertIn("网页版调用失败", messages[0]["content"])
+
+    def test_api_debate_unknown_profile_falls_back_to_marked_demo(self):
+        resp = self.client.post(
+            "/api/debate",
+            json={
+                "mode": "modern",
+                "query": "test unknown profile",
+                "selectedMembers": [
+                    {
+                        "id": "unknown-model",
+                        "name": "Unknown",
+                        "apiProfileId": "missing_profile",
+                    }
+                ],
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()["demoMode"])
+        self.assertIn("演示数据", resp.json()["messages"][0]["content"])
+
+    @patch("backend.core.providers.ccswitch_provider.CCSwitchProvider._request", return_value="CC Switch OK")
+    def test_api_debate_accepts_keyless_local_ccswitch(self, _request):
+        resp = self.client.post(
+            "/api/debate",
+            json={
+                "mode": "modern",
+                "query": "test keyless route",
+                "apiConfigs": [
+                    {
+                        "id": "ccswitch",
+                        "endpoint": "http://127.0.0.1:15721/v1",
+                        "model": "gpt-test",
+                    }
+                ],
+                "selectedMembers": [
+                    {
+                        "id": "ccswitch-model",
+                        "name": "CC Switch",
+                        "providerId": "ccswitch",
+                    }
+                ],
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(resp.json()["demoMode"])
+        self.assertEqual(resp.json()["messages"][0]["content"], "CC Switch OK")
+
+    @patch(
+        "backend.core.providers.ccswitch_provider.CCSwitchProvider._request",
+        return_value='[{"id":"alpha","title":"A","badge":"A","description":"A","icon":"policy"}]',
+    )
+    def test_api_finalize_accepts_keyless_local_ccswitch(self, _request):
+        resp = self.client.post(
+            "/api/finalize",
+            json={
+                "contextTitle": "test",
+                "messages": [{"sender": "Member", "content": "Opinion", "isUser": False}],
+                "apiConfigs": [{"id": "ccswitch"}],
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotIn("demoMode", resp.json())
+        self.assertEqual(resp.json()["plans"][0]["title"], "A")
+
+    def test_api_debate_requires_query_and_member(self):
+        self.assertEqual(self.client.post("/api/debate", json={}).status_code, 400)
 
 
 if __name__ == "__main__":
