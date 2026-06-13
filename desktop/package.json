@@ -1,6 +1,8 @@
 {
   "name": "neige-desktop",
   "version": "0.1.0",
+  "description": "Local-first multi-AI collaboration desktop app",
+  "author": "Synapse Relay Maintainers",
   "private": true,
   "main": "main.cjs",
   "scripts": {
@@ -12,8 +14,7 @@
   "build": {
     "appId": "com.neige.cabinet",
     "productName": "\u5185\u9601",
-    "electronDist": "node_modules/electron/dist",
-    "electronVersion": "33.4.11",
+    "electronVersion": "42.4.0",
     "directories": {
       "output": "../dist-desktop"
     },
@@ -52,7 +53,7 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",
-    "electron": "^33.4.11",
+    "electron": "^42.4.0",
     "electron-builder": "^26.8.1"
   }
 }

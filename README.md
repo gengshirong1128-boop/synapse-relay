@@ -20,7 +20,7 @@ Why it is useful:
 以下数据来自仓库内命令，不是营销估算：
 
 - Backend test suite：`102` tests
-- Frontend production build：`1691` modules transformed，gzip JavaScript 约 `138 kB`
+- Frontend production build：`1678` modules transformed，gzip JavaScript 约 `133 kB`
 - Route Reasoning Skill：`37` decision cards，`13` scenario test cases
 - Claude Cabinet：`15/15` deterministic routing cases；示例路线比全程 Fable 估算低 `62.93%`
 
