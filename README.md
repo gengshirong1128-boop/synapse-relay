@@ -20,7 +20,7 @@ Local agent collaboration scheduler that prevents information gaps and conflicti
 
 ## 可验证数据 / Verified Data
 
-- `114` backend tests pass.
+- `188` backend tests pass.
 - Frontend production bundle: about `66.05 kB` gzip JavaScript.
 - Frontend and desktop npm audits: `0 vulnerabilities`.
 - Portable Windows build verified.
@@ -46,18 +46,28 @@ python launch.py
 dist-desktop/Agent Relay 0.2.0.exe
 ```
 
+检测本地 agent（无需启动服务器）/ Detect local agents without starting the server：
+
+```powershell
+python -m backend.detect_agents          # 表格 / table
+python -m backend.detect_agents --test   # 同时测试连通性 / probe connectivity
+python -m backend.detect_agents --json   # JSON
+```
+
 ## 验证 / Verify
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\release_check.ps1
 python -m pytest backend\tests -q
 npm run lint --prefix 内阁-ai-app
+npm run test --prefix 内阁-ai-app
 npm run build --prefix 内阁-ai-app
 ```
 
 ## API
 
 - `GET /orchestration/agents`
+- `POST /orchestration/agents/{tool_id}/test`
 - `POST /orchestration/plans`
 - `GET /orchestration/plans/{plan_id}`
 - `POST /orchestration/plans/{plan_id}/tasks/{task_id}/start`
