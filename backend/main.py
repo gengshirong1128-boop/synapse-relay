@@ -54,6 +54,7 @@ from backend.core.executors import ClaudeCodeExporter, CodexExporter, GenericExp
 from backend.core.executors.runner import check_executor, run_executor
 from backend.core.executors.runner import build_confirmation_token, run_store
 from backend.core.collaboration import collaboration_store
+from backend.core.orchestration_planner import generate_collaboration_draft
 from backend.schemas import (
     ActiveAgentRequest,
     AddAgentInstanceToRoomRequest,
@@ -111,9 +112,15 @@ from backend.schemas import (
     ImperialReviewRequest,
     RoomSettingsPatchRequest,
     CollaborationPlanCreateRequest,
+    CollaborationDraftRequest,
     CollaborationTaskStartRequest,
+    CollaborationTaskCancelRequest,
     CollaborationSupervisorStartRequest,
+    CollaborationSupervisorCancelRequest,
     CollaborationAdviceRequest,
+    CollaborationMessageRequest,
+    CollaborationAcceptanceRequest,
+    CollaborationArchiveRequest,
 )
 from backend.core.provider_profiles import provider_profile_store
 from backend.core.provider_detection import detect_cli_tools, local_tool_config, test_local_tool
@@ -189,7 +196,10 @@ def _build_execution_package(room, request: ExecutorExportRequest, executor_type
         if cached:
             context = cached.model_dump(mode="json")
         else:
-            index = project_index_store.get(request.project_id)
+            try:
+                index = project_index_store.get(request.project_id)
+            except KeyError as exc:
+                raise ValueError(f"Unknown project_id: {request.project_id}") from exc
             context = {
                 "project_id": index.project_id,
                 "project_name": index.project_name,
@@ -388,6 +398,8 @@ def history_rooms(include_archived: bool = False, limit: int = 20):
 def history_room_get(room_id: str):
     try:
         room = history_store.load_room(room_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     room_store.save(room)
@@ -399,6 +411,8 @@ def history_room_get(room_id: str):
 def history_room_rename(room_id: str, request: RoomRenameRequest):
     try:
         result = history_store.rename_room(room_id, request.title)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return result
@@ -408,6 +422,8 @@ def history_room_rename(room_id: str, request: RoomRenameRequest):
 def history_room_archive(room_id: str, request: RoomArchiveRequest):
     try:
         return history_store.archive_room(room_id, archived=request.archived)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -416,13 +432,18 @@ def history_room_archive(room_id: str, request: RoomArchiveRequest):
 def history_room_pin(room_id: str, request: RoomPinRequest):
     try:
         return history_store.pin_room(room_id, pinned=request.pinned)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.delete("/history/rooms/{room_id}")
 def history_room_delete(room_id: str):
-    return history_store.delete_room(room_id)
+    try:
+        return history_store.delete_room(room_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/history/search")
@@ -434,6 +455,8 @@ def history_search(q: str, limit: int = 20):
 def history_export(room_id: str):
     try:
         markdown = history_store.export_transcript_markdown(room_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {"room_id": room_id, "format": "markdown", "content": markdown}
@@ -960,7 +983,10 @@ def provider_profiles_configure(profile_id: str, payload: dict):
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     credential_store.reload()
-    credential = credential_store.get(profile.credential_id)
+    try:
+        credential = credential_store.get(profile.credential_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Profile references unknown credential: {exc}") from exc
     if profile.auth_env_name:
         credential.key_available = bool(os.getenv(profile.auth_env_name, "").strip())
     return {
@@ -989,7 +1015,10 @@ def provider_profiles_test(profile_id: str, request: ProviderProfileTestRequest)
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     credential_store.reload()
-    credential = credential_store.get(profile.credential_id)
+    try:
+        credential = credential_store.get(profile.credential_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Profile references unknown credential: {exc}") from exc
     if profile.auth_env_name:
         credential.api_key_env_name = profile.auth_env_name
         credential.key_available = bool(os.getenv(profile.auth_env_name, "").strip())
@@ -1701,7 +1730,10 @@ def private_sync_to_room(agent_id: str, request: PrivateSyncRequest):
 @app.post("/executor/export/codex")
 def export_codex(request: ExecutorExportRequest):
     room = get_room_or_404(request.room_id)
-    package = _build_execution_package(room, request, executor_type="codex")
+    try:
+        package = _build_execution_package(room, request, executor_type="codex")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     exporter = CodexExporter()
     package = exporter.export(package)
     history_store.save_room(room, execution_log_summary="Exported Codex execution package.")
@@ -1716,7 +1748,10 @@ def export_codex(request: ExecutorExportRequest):
 @app.post("/executor/export/claude-code")
 def export_claude_code(request: ExecutorExportRequest):
     room = get_room_or_404(request.room_id)
-    package = _build_execution_package(room, request, executor_type="claude_code")
+    try:
+        package = _build_execution_package(room, request, executor_type="claude_code")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     exporter = ClaudeCodeExporter()
     package = exporter.export(package)
     history_store.save_room(room, execution_log_summary="Exported Claude Code execution package.")
@@ -2008,7 +2043,10 @@ def api_finalize(payload: dict):
 @app.post("/executor/export/generic")
 def export_generic(request: ExecutorExportRequest):
     room = get_room_or_404(request.room_id)
-    package = _build_execution_package(room, request, executor_type="generic")
+    try:
+        package = _build_execution_package(room, request, executor_type="generic")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     exporter = GenericExporter()
     package = exporter.export(package)
     history_store.save_room(room, execution_log_summary="Exported generic execution package.")
@@ -2109,6 +2147,14 @@ def orchestration_agents():
     }
 
 
+@app.post("/orchestration/agents/{tool_id}/test")
+def orchestration_agent_test(tool_id: str):
+    try:
+        return test_local_tool(tool_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @app.post("/orchestration/plans")
 def orchestration_plan_create(request: CollaborationPlanCreateRequest):
     try:
@@ -2117,9 +2163,17 @@ def orchestration_plan_create(request: CollaborationPlanCreateRequest):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.post("/orchestration/draft")
+def orchestration_draft(request: CollaborationDraftRequest):
+    try:
+        return generate_collaboration_draft(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.get("/orchestration/plans")
-def orchestration_plans_list():
-    return {"plans": collaboration_store.list()}
+def orchestration_plans_list(include_archived: bool = False):
+    return {"plans": collaboration_store.list(include_archived=include_archived)}
 
 
 @app.get("/orchestration/plans/{plan_id}")
@@ -2138,10 +2192,28 @@ def orchestration_task_prompt(plan_id: str, task_id: str):
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@app.get("/orchestration/plans/{plan_id}/tasks/{task_id}/activity")
+def orchestration_task_activity(plan_id: str, task_id: str):
+    try:
+        return collaboration_store.task_activity(plan_id, task_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @app.post("/orchestration/plans/{plan_id}/tasks/{task_id}/start")
 def orchestration_task_start(plan_id: str, task_id: str, request: CollaborationTaskStartRequest):
     try:
         return collaboration_store.start_task(plan_id, task_id, request.confirm)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/orchestration/plans/{plan_id}/tasks/{task_id}/cancel")
+def orchestration_task_cancel(plan_id: str, task_id: str, request: CollaborationTaskCancelRequest):
+    try:
+        return collaboration_store.cancel_task(plan_id, task_id, request.confirm)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
@@ -2166,12 +2238,86 @@ def orchestration_supervisor_start(plan_id: str, request: CollaborationSuperviso
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.post("/orchestration/plans/{plan_id}/supervisor/cancel")
+def orchestration_supervisor_cancel(plan_id: str, request: CollaborationSupervisorCancelRequest):
+    try:
+        return collaboration_store.cancel_supervisor(plan_id, request.confirm)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.post("/orchestration/plans/{plan_id}/advice")
 def orchestration_advice(plan_id: str, request: CollaborationAdviceRequest):
     try:
         return collaboration_store.add_advice(plan_id, request.content, request.target_task_ids)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/orchestration/plans/{plan_id}/messages")
+def orchestration_message(plan_id: str, request: CollaborationMessageRequest):
+    try:
+        return collaboration_store.add_message(plan_id, request.content, request.target_task_ids)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/orchestration/plans/{plan_id}/supervisor/activity")
+def orchestration_supervisor_activity(plan_id: str):
+    try:
+        return collaboration_store.supervisor_activity(plan_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/orchestration/plans/{plan_id}/result")
+def orchestration_plan_result(plan_id: str):
+    try:
+        return collaboration_store.result_report(plan_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/orchestration/plans/{plan_id}/acceptance")
+def orchestration_plan_acceptance(plan_id: str, request: CollaborationAcceptanceRequest):
+    try:
+        return collaboration_store.set_acceptance(plan_id, request.accepted, request.note)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/orchestration/plans/{plan_id}/export")
+def orchestration_plan_export(plan_id: str):
+    try:
+        return collaboration_store.export_markdown(plan_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/orchestration/plans/{plan_id}/archive")
+def orchestration_plan_archive(plan_id: str, request: CollaborationArchiveRequest):
+    try:
+        return collaboration_store.archive(plan_id, request.archived)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.delete("/orchestration/plans/{plan_id}")
+def orchestration_plan_delete(plan_id: str):
+    try:
+        return collaboration_store.delete(plan_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/context/{room_id}/usage")

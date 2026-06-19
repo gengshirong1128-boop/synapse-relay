@@ -782,14 +782,14 @@ class ProviderProfileTestRequest(BaseModel):
 
 class ExecutorRunRequest(BaseModel):
     executor_type: Literal["codex", "claude_code"]
-    project_path: str
-    prompt: str = ""
-    prompt_file: str | None = None
+    project_path: str = Field(max_length=4096)
+    prompt: str = Field(default="", max_length=100_000)
+    prompt_file: str | None = Field(default=None, max_length=4096)
     dry_run: bool = True
-    timeout_seconds: int = 600
+    timeout_seconds: int = Field(default=600, ge=1, le=3600)
     allow_write: bool = False
-    extra_args: list[str] = Field(default_factory=list)
-    confirmation_token: str | None = None
+    extra_args: list[str] = Field(default_factory=list, max_length=64)
+    confirmation_token: str | None = Field(default=None, max_length=256)
 
 
 class ExecutorRunResult(BaseModel):
@@ -808,23 +808,39 @@ class ExecutorRunResult(BaseModel):
 
 
 class CollaborationTaskCreate(BaseModel):
-    task_id: str
-    agent_id: str
-    title: str
-    instructions: str = ""
-    read_paths: list[str] = Field(default_factory=list)
-    write_paths: list[str] = Field(default_factory=list)
-    depends_on: list[str] = Field(default_factory=list)
+    # task_id is used to build log file paths, so restrict it to a safe slug
+    # (no slashes, no "..") to prevent path traversal.
+    task_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9._-]+$")
+    agent_id: str = Field(max_length=64)
+    title: str = Field(max_length=200)
+    instructions: str = Field(default="", max_length=8000)
+    read_paths: list[str] = Field(default_factory=list, max_length=64)
+    write_paths: list[str] = Field(default_factory=list, max_length=64)
+    depends_on: list[str] = Field(default_factory=list, max_length=64)
 
 
 class CollaborationPlanCreateRequest(BaseModel):
-    project_path: str
-    goal: str
+    project_path: str = Field(max_length=4096)
+    goal: str = Field(min_length=1, max_length=4000)
     supervisor_agent_id: str | None = None
-    tasks: list[CollaborationTaskCreate] = Field(min_length=1)
+    manager_report: dict[str, Any] | None = None
+    tasks: list[CollaborationTaskCreate] = Field(min_length=1, max_length=16)
+
+
+class CollaborationDraftRequest(BaseModel):
+    project_path: str = Field(max_length=4096)
+    goal: str = Field(min_length=1, max_length=4000)
+    manager_agent_id: str = Field(max_length=64)
+    worker_agent_ids: list[str] = Field(default_factory=list, max_length=16)
+    language: Literal["zh", "en"] = "zh"
+    max_tasks: int = Field(default=5, ge=2, le=8)
 
 
 class CollaborationTaskStartRequest(BaseModel):
+    confirm: bool = False
+
+
+class CollaborationTaskCancelRequest(BaseModel):
     confirm: bool = False
 
 
@@ -832,9 +848,27 @@ class CollaborationSupervisorStartRequest(BaseModel):
     confirm: bool = False
 
 
+class CollaborationSupervisorCancelRequest(BaseModel):
+    confirm: bool = False
+
+
 class CollaborationAdviceRequest(BaseModel):
-    content: str
-    target_task_ids: list[str] = Field(default_factory=list)
+    content: str = Field(min_length=1, max_length=4000)
+    target_task_ids: list[str] = Field(default_factory=list, max_length=64)
+
+
+class CollaborationMessageRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=4000)
+    target_task_ids: list[str] = Field(default_factory=list, max_length=64)
+
+
+class CollaborationAcceptanceRequest(BaseModel):
+    accepted: bool
+    note: str = Field(default="", max_length=4000)
+
+
+class CollaborationArchiveRequest(BaseModel):
+    archived: bool = True
 
 
 class ProjectFile(BaseModel):
