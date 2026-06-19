@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "CodexMobile",
+    "slug": "codex-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "codexmobile",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#1a1a2e"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.codexmobile.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "扫描中继服务的连接二维码以快速配对。"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1a1a2e"
+      },
+      "package": "com.codexmobile.app",
+      "permissions": ["CAMERA"]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "扫描中继服务的连接二维码以快速配对。"
+        }
+      ]
+    ]
+  }
+}

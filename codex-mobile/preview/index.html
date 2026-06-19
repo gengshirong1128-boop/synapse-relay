@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodexMobile UI Preview</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#16141a;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;gap:40px;flex-wrap:wrap;padding:48px 24px}
+h1.page-title{width:100%;text-align:center;color:#fff;font-size:28px;font-weight:700;margin-bottom:8px}
+p.page-subtitle{width:100%;text-align:center;color:#8e8e93;font-size:14px;margin-bottom:32px}
+.phone-wrapper{position:relative}
+.phone-label{color:#bbb;font-size:12px;font-weight:600;margin-bottom:10px;text-align:center;letter-spacing:1px;text-transform:uppercase}
+.phone{width:375px;height:780px;border-radius:48px;overflow:hidden;border:2.5px solid #3a3a3c;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.status-bar{height:48px;display:flex;align-items:center;justify-content:center}
+.status-bar span{font-size:14px;font-weight:600}
+.header{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 20px}
+.content{flex:1;overflow-y:auto}
+.tab-bar{height:72px;display:flex;align-items:flex-start;padding-top:10px}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.tab-icon{font-size:18px}
+.tab-label{font-size:10px;font-weight:500}
+.messages{padding:14px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:82%;border-radius:16px;padding:11px 15px;font-size:14px;line-height:21px}
+.msg-time{font-size:10px;margin-top:4px;text-align:right}
+.token-bar{display:flex;margin:10px 14px;padding:7px 10px;border-radius:10px}
+.token-item{flex:1;text-align:center}
+.token-label{font-size:10px}
+.token-value{font-size:13px;font-weight:600;margin-top:2px}
+.token-divider{width:1px;height:26px;align-self:center}
+.code-block{border-radius:8px;margin:7px 0;overflow:hidden}
+.code-header{display:flex;justify-content:space-between;padding:5px 10px}
+.code-lang{font-size:10px}
+.code-copy{font-size:10px;cursor:pointer}
+.code-body{padding:8px 10px;font-family:Consolas,'Courier New',monospace;font-size:12px;white-space:pre;line-height:17px}
+.input-bar{display:flex;align-items:flex-end;padding:10px 14px;gap:8px}
+.input-field{flex:1;border:none;border-radius:20px;padding:10px 16px;font-size:14px;outline:none}
+.send-btn{border:none;border-radius:20px;padding:10px 16px;color:#fff;font-weight:600;font-size:13px;cursor:pointer}
+/* CLAUDE */
+.claude{background:#faf9f5;font-family:Georgia,serif}
+.claude .status-bar{background:#f5f3ee}
+.claude .status-bar span{color:#3d3929}
+.claude .header{background:#f5f3ee;border-bottom:1px solid #e8e5dc}
+.claude .header-title{color:#3d3929;font-size:17px;font-weight:700}
+.claude .header-badge{background:#da775622;color:#c96442;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
+.claude .content{background:#faf9f5}
+.claude .tab-bar{background:#f5f3ee;border-top:1px solid #e8e5dc}
+.claude .tab-label{color:#8a7e6e}
+.claude .tab.active .tab-label{color:#c96442;font-weight:600}
+.claude .token-bar{background:#fff;border:1px solid #e8e5dc}
+.claude .token-label{color:#a89f91}
+.claude .token-value{color:#3d3929}
+.claude .token-cost{color:#c96442}
+.claude .token-divider{background:#e8e5dc}
+.claude .msg-user{align-self:flex-end;background:#c96442;color:#fff;border-bottom-right-radius:4px}
+.claude .msg-ai{align-self:flex-start;background:#fff;color:#3d3929;border:1px solid #e8e5dc;border-bottom-left-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.claude .msg-time{color:#a89f91}
+.claude .msg-user .msg-time{color:rgba(255,255,255,.6)}
+.claude .code-block{background:#2d2b27}
+.claude .code-header{background:#3d3929}
+.claude .code-lang{color:#a89f91}
+.claude .code-copy{color:#da7756}
+.claude .code-body{color:#f5f3ee}
+.claude .input-bar{background:#f5f3ee;border-top:1px solid #e8e5dc}
+.claude .input-field{background:#fff;color:#3d3929;border:1px solid #e8e5dc}
+.claude .send-btn{background:#c96442;border-radius:22px}
+/* CODEX */
+.codex{background:#0d1117;font-family:Consolas,'Courier New',monospace}
+.codex .status-bar{background:#0d1117}
+.codex .status-bar span{color:#10a37f;font-size:12px}
+.codex .header{background:#161b22;border-bottom:1px solid #21262d}
+.codex .header-title{color:#e6edf3;font-size:15px;font-weight:600}
+.codex .header-badge{background:#10a37f22;color:#10a37f;padding:3px 10px;border-radius:4px;font-size:11px;border:1px solid #10a37f44}
+.codex .content{background:#0d1117}
+.codex .tab-bar{background:#161b22;border-top:1px solid #21262d}
+.codex .tab-label{color:#8b949e;font-size:9px}
+.codex .tab.active .tab-label{color:#10a37f;font-weight:600}
+.codex .token-bar{background:#161b22;border:1px solid #21262d;border-radius:4px}
+.codex .token-label{color:#484f58;text-transform:uppercase;letter-spacing:.5px;font-size:9px}
+.codex .token-value{color:#e6edf3}
+.codex .token-cost{color:#10a37f}
+.codex .token-divider{background:#21262d}
+.codex .msg{border-radius:4px;font-size:13px;line-height:20px}
+.codex .msg-user{align-self:flex-end;background:#1f6feb22;color:#e6edf3;border:1px solid #1f6feb44}
+.codex .msg-ai{align-self:flex-start;background:#161b22;color:#c9d1d9;border:1px solid #21262d}
+.codex .msg-time{color:#484f58}
+.codex .msg-prefix{color:#10a37f;font-weight:500;margin-bottom:4px;font-size:11px}
+.codex .code-block{background:#010409;border:1px solid #21262d;border-radius:4px}
+.codex .code-header{background:#161b22;border-bottom:1px solid #21262d}
+.codex .code-lang{color:#484f58}
+.codex .code-copy{color:#10a37f}
+.codex .code-body{color:#c9d1d9;font-size:11px}
+.codex .code-body .kw{color:#ff7b72}
+.codex .code-body .str{color:#a5d6ff}
+.codex .code-body .fn{color:#d2a8ff}
+.codex .code-body .cm{color:#484f58}
+.codex .input-bar{background:#161b22;border-top:1px solid #21262d}
+.codex .input-field{background:#0d1117;color:#c9d1d9;border:1px solid #21262d;border-radius:4px;font-family:Consolas,monospace;font-size:13px}
+.codex .send-btn{background:#10a37f;border-radius:4px;font-size:12px}
+/* Thinking bar */
+.thinking-bar{display:flex;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid}
+.claude-thinking{background:#f2efe8;border-color:#e8e5dc}
+.codex-thinking{background:#161b22;border-color:#21262d}
+.thinking-spinner{font-size:18px;animation:spin 1.2s linear infinite}
+.claude-thinking .thinking-spinner{color:#c96442}
+.codex-thinking .thinking-spinner{color:#00d26a}
+.thinking-text{flex:1;font-size:13px;font-weight:600}
+.claude-thinking .thinking-text{color:#6b5e4f}
+.codex-thinking .thinking-text{color:#b0b0b0}
+.thinking-time{font-size:11px}
+.claude-thinking .thinking-time{color:#a89f91}
+.codex-thinking .thinking-time{color:#777}
+/* Stop button */
+.stop-btn{border:none;border-radius:22px;width:42px;height:42px;background:#ff3b30;color:#fff;font-size:16px;font-weight:800;cursor:pointer}
+.codex-stop{border-radius:4px}
+/* Tool card */
+.tool-card{border-radius:10px;padding:10px 12px;margin:8px 0;border:1px solid}
+.claude-tool{background:#f2efe8;border-color:#e5e0d5}
+.tool-top{display:flex;justify-content:space-between;align-items:center}
+.tool-left{display:flex;align-items:center;gap:6px}
+.tool-icon{color:#c96442;font-size:13px}
+.tool-name{font-size:13px;font-weight:700;color:#3d3929}
+.tool-badge{background:#c9644215;color:#c96442;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
+.tool-badge-auto{background:#34c75920;color:#34c759;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
+.tool-preview{font-family:Consolas,monospace;font-size:11px;color:#6b5e4f;margin-top:6px}
+/* Permission card */
+.permission-card{background:#fff;border:1.5px solid #c96442;border-radius:10px;padding:12px;margin:8px 0}
+.perm-header{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.perm-icon{font-size:13px}
+.perm-tool{font-size:13px;font-weight:700;color:#3d3929}
+.perm-cmd{font-family:Consolas,monospace;font-size:11px;color:#c96442;background:#c9644210;padding:6px 8px;border-radius:4px;margin-bottom:10px}
+.perm-actions{display:flex;gap:6px}
+.perm-allow{background:#34c759;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer}
+.perm-deny{background:#ff3b30;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer}
+.perm-always{background:transparent;color:#8a7e6e;border:1px solid #e5e0d5;border-radius:6px;padding:6px 10px;font-size:11px;cursor:pointer}
+/* Thinking block */
+.thinking-block{margin:8px 0;border-radius:8px;padding:8px 12px;border:1px solid}
+.claude-thinking-block{background:#f2efe8;border-color:#e5e0d5}
+.thinking-header{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#6b5e4f}
+.thinking-icon{font-size:14px}
+.thinking-toggle{margin-left:auto;font-size:10px;color:#a89f91;cursor:pointer}
+.thinking-content{font-size:11px;color:#8a7e6e;margin-top:6px;line-height:16px;font-style:italic}
+/* Attach button */
+.attach-btn{background:transparent;border:none;font-size:20px;cursor:pointer;padding:8px}
+.input-with-attach{margin-left:0}
+/* Model selector */
+.model-selector{display:flex;align-items:center;gap:4px;background:#da775622;padding:4px 10px;border-radius:6px;cursor:pointer}
+.model-current{color:#c96442;font-size:12px;font-weight:700}
+.model-arrow{color:#c96442;font-size:10px}
+.model-dropdown{background:#fff;border:1px solid #e8e5dc;border-radius:8px;padding:4px;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.model-option{padding:8px 12px;font-size:13px;color:#3d3929;border-radius:6px;display:flex;justify-content:space-between}
+.model-option.active{background:#c9644210}
+.model-check{color:#c96442;font-weight:700}
+/* Animations */
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+</style>
+</head>
+<body>
+<h1 class="page-title">CodexMobile</h1>
+<p class="page-subtitle">Claude Code / Codex CLI Remote Controller</p>
+
+<!-- Claude Code -->
+<div class="phone-wrapper">
+<div class="phone-label">Claude Code Mode</div>
+<div class="phone claude">
+<div class="status-bar"><span>9:41</span></div>
+<div class="header"><div class="header-title">Claude Code</div><div class="header-badge">sonnet 4.6</div></div>
+<div class="content">
+<div class="messages">
+<div class="msg msg-user">帮我看 src/auth.ts 有没有安全问题<div class="msg-time">14:32</div></div>
+<div class="msg msg-ai">我来检查 auth.ts 的安全性：<div class="code-block"><div class="code-header"><span class="code-lang">typescript</span><span class="code-copy">复制</span></div><div class="code-body">// 问题: secret 硬编码
+const secret = "abc123"
+
+// 修复: 使用环境变量
+const secret = process.env.JWT_SECRET</div></div>发现 2 个风险：<br>1. JWT secret 硬编码且过短<br>2. token 无过期时间<div class="msg-time">14:32</div></div>
+<div class="msg msg-user">修复它<div class="msg-time">14:33</div></div>
+<div class="msg msg-ai">已修复。使用 env 加载 secret，设置 30 天过期。变更已写入 src/auth.ts。<span style="color:#c96442;font-weight:bold"> ▎</span><div class="msg-time">14:33</div></div>
+</div>
+<div class="token-bar">
+<div class="token-item"><div class="token-label">输入</div><div class="token-value">12.3K</div></div>
+<div class="token-divider"></div>
+<div class="token-item"><div class="token-label">输出</div><div class="token-value">8.7K</div></div>
+<div class="token-divider"></div>
+<div class="token-item"><div class="token-label">费用</div><div class="token-value token-cost">$0.167</div></div>
+</div>
+</div>
+<div class="input-bar"><input class="input-field" placeholder="Message Claude Code..." readonly><button class="send-btn">↑</button></div>
+</div>
+</div>
+
+<!-- Claude Code - Thinking State -->
+<div class="phone-wrapper">
+<div class="phone-label">思考 + 权限请求 + 停止</div>
+<div class="phone claude">
+<div class="status-bar"><span>9:41</span></div>
+<div class="header"><div class="header-title">Claude Code</div><div class="header-badge">opus 4.7</div></div>
+<div class="content">
+<div class="messages">
+<div class="msg msg-user">重构整个 auth 模块，使用 OIDC 标准<div class="msg-time">14:35</div></div>
+<div class="thinking-block claude-thinking-block">
+<div class="thinking-header"><span class="thinking-icon">💭</span><span>思考中</span><span class="thinking-toggle">展开 ▾</span></div>
+<div class="thinking-content">分析现有 auth.ts 结构... 需要将 JWT 逻辑替换为标准 OIDC flow，保持向后兼容...</div>
+</div>
+<div class="msg msg-ai"><strong>重构方案：</strong><br><br>1. 替换自定义 JWT → OpenID Connect<br>2. 添加 `/.well-known/openid-configuration`<br>3. 保留现有 token 格式做 **降级兼容**<div class="msg-time">14:35</div></div>
+<div class="permission-card">
+<div class="perm-header"><span class="perm-icon">⚡</span><span class="perm-tool">Bash</span></div>
+<div class="perm-cmd">$ rm src/auth.ts && touch src/oidc.ts</div>
+<div class="perm-actions"><button class="perm-allow">✓ 允许</button><button class="perm-deny">✗ 拒绝</button><button class="perm-always">始终允许</button></div>
+</div>
+</div>
+<div class="thinking-bar claude-thinking">
+<span class="thinking-spinner">⟳</span>
+<span class="thinking-text">等待确认...</span>
+<span class="thinking-time">5s</span>
+</div>
+</div>
+<div class="input-bar"><input class="input-field" placeholder="Message Claude Code..." readonly><button class="stop-btn">■</button></div>
+</div>
+</div>
+
+<!-- Claude Code - Tool Use + Markdown -->
+<div class="phone-wrapper">
+<div class="phone-label">Markdown 原样输出 + 图片</div>
+<div class="phone claude">
+<div class="status-bar"><span>9:41</span></div>
+<div class="header"><div class="header-title">Claude Code</div><div class="header-badge">sonnet 4.6</div></div>
+<div class="content">
+<div class="messages">
+<div class="msg msg-user">看看 package.json 有什么依赖<div class="msg-time">14:40</div></div>
+<div class="tool-card claude-tool">
+<div class="tool-top"><div class="tool-left"><span class="tool-icon">⚡</span><span class="tool-name">Read</span></div><div class="tool-badge-auto">自动执行 ✓</div></div>
+<div class="tool-preview">file_path: package.json</div>
+</div>
+<div class="msg msg-ai"><strong>依赖分析</strong><br><br>共 <strong>12</strong> 个生产依赖：<br><br>• `expo` ^54.0 — 框架核心<br>• `react` 19.1 — UI 引擎<br>• `zustand` ^5.0 — 状态管理<br><br><em>建议：</em>移除未使用的 `react-native-web`<div class="msg-time">14:40</div></div>
+</div>
+</div>
+<div class="input-bar"><button class="attach-btn">📎</button><input class="input-field input-with-attach" placeholder="Message Claude Code..." readonly><button class="send-btn">↑</button></div>
+</div>
+</div>
+<div class="phone-wrapper">
+<div class="phone-label">Codex Mode</div>
+<div class="phone codex">
+<div class="status-bar"><span>9:41</span></div>
+<div class="header"><div class="header-title">Codex</div><div class="header-badge">codex-mini</div></div>
+<div class="content">
+<div class="messages">
+<div class="msg msg-user">generate tests for auth module<div class="msg-time">14:28</div></div>
+<div class="msg msg-ai"><div class="code-block"><div class="code-header"><span class="code-lang">typescript</span><span class="code-copy">copy</span></div><div class="code-body"><span class="kw">import</span> { describe, it } <span class="kw">from</span> <span class="str">'vitest'</span>
+<span class="kw">import</span> { <span class="fn">verifyToken</span> } <span class="kw">from</span> <span class="str">'./auth'</span>
+
+<span class="fn">describe</span>(<span class="str">'auth'</span>, () =&gt; {
+  <span class="fn">it</span>(<span class="str">'rejects expired'</span>, () =&gt; {
+    <span class="cm">// ...</span>
+  })
+})</div></div>Created 3 test files:<br>• tests/auth.test.ts<br>• tests/jwt.test.ts<br>• tests/session.test.ts<div class="msg-time">14:28</div></div>
+<div class="msg msg-user">run them<div class="msg-time">14:29</div></div>
+<div class="msg msg-ai">✓ auth.test.ts (3 passed)<br>✓ jwt.test.ts (5 passed)<br>✓ session.test.ts (2 passed)<br><br><span style="color:#10a37f;font-weight:500">10/10 tests passed</span><div class="msg-time">14:29</div></div>
+</div>
+<div class="token-bar">
+<div class="token-item"><div class="token-label">IN</div><div class="token-value">5.2K</div></div>
+<div class="token-divider"></div>
+<div class="token-item"><div class="token-label">OUT</div><div class="token-value">3.8K</div></div>
+<div class="token-divider"></div>
+<div class="token-item"><div class="token-label">COST</div><div class="token-value token-cost">$0.042</div></div>
+</div>
+</div>
+<div class="input-bar"><input class="input-field" placeholder="Message Codex..." readonly><button class="send-btn">↑</button></div>
+</div>
+</div>
+
+<!-- Codex - Thinking State -->
+<div class="phone-wrapper">
+<div class="phone-label">Codex 思考中</div>
+<div class="phone codex">
+<div class="status-bar"><span>9:41</span></div>
+<div class="header"><div class="header-title">Codex</div><div class="header-badge">gpt-5.5</div></div>
+<div class="content">
+<div class="messages">
+<div class="msg msg-user">refactor the database layer to use connection pooling<div class="msg-time">14:50</div></div>
+<div class="msg msg-ai"><span class="msg-prefix">codex &gt;</span>Analyzing current DB connections...<span style="color:#00d26a;font-weight:bold;animation:blink 1s infinite"> ▊</span></div>
+</div>
+<div class="thinking-bar codex-thinking">
+<span class="thinking-spinner">⟳</span>
+<span class="thinking-text">生成回复...</span>
+<span class="thinking-time">8s</span>
+</div>
+</div>
+<div class="input-bar"><input class="input-field" placeholder="Message Codex..." readonly><button class="stop-btn codex-stop">■</button></div>
+</div>
+</div>
+
+<!-- Model Switch Demo -->
+<div class="phone-wrapper">
+<div class="phone-label">模型切换（对话中）</div>
+<div class="phone claude">
+<div class="status-bar"><span>9:41</span></div>
+<div class="header"><div class="header-title">Claude Code</div><div class="model-selector"><span class="model-current">sonnet 4.6</span><span class="model-arrow">▾</span></div></div>
+<div class="content" style="padding:14px">
+<div class="model-dropdown">
+<div class="model-option active">Sonnet 4.6 <span class="model-check">✓</span></div>
+<div class="model-option">Opus 4.7</div>
+<div class="model-option">Haiku 4.5</div>
+</div>
+<div class="messages" style="margin-top:12px">
+<div class="msg msg-ai" style="font-size:12px;color:#8a7e6e;text-align:center;background:transparent;border:none;max-width:100%">模型已切换为 Opus 4.7</div>
+<div class="msg msg-user">用更强的模型重新分析一遍<div class="msg-time">14:45</div></div>
+<div class="msg msg-ai">使用 Opus 4.7 重新审查...<span style="color:#c96442;font-weight:bold"> ▎</span><div class="msg-time">14:45</div></div>
+</div>
+</div>
+<div class="input-bar"><input class="input-field" placeholder="Message Claude Code..." readonly><button class="send-btn">↑</button></div>
+</div>
+</div>
+</body>
+</html>

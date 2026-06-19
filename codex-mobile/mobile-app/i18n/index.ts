@@ -1,0 +1,91 @@
+export type Locale = 'zh' | 'en';
+
+const zh = {
+  chat: '对话',
+  sessions: '会话',
+  files: '文件',
+  settings: '设置',
+  connect: '连接',
+  connecting: '连接中...',
+  connected: '已连接',
+  disconnected: '未连接',
+  notConnected: '未连接到服务器',
+  newChat: '新对话',
+  send: '发送',
+  thinking: '思考中',
+  inputPlaceholder: '给 {backend} 发消息...',
+  noSessions: '暂无会话',
+  noSessionsHint: '发送第一条消息创建会话',
+  running: '运行中',
+  idle: '空闲',
+  crashed: '异常',
+  serverAddress: '服务器地址',
+  pairingCode: '配对码',
+  pairConnect: '配对连接',
+  authFailed: '认证失败',
+  authFailedMsg: '配对码错误或已过期',
+  invalidCode: '配对码无效',
+  invalidCodeMsg: '请输入 6 位配对码',
+  darkMode: '深色模式',
+  language: '语言',
+  backend: '后端',
+  inputTokens: '输入',
+  outputTokens: '输出',
+  cost: '费用',
+  sessionBusy: '会话忙碌中',
+  howToConnect: '使用说明',
+  step1: '在电脑上运行 relay-server',
+  step2: '终端会显示配对码和地址',
+  step3: '确保手机和电脑同网络',
+  step4: '外网访问需启用 Tunnel',
+};
+
+const en: typeof zh = {
+  chat: 'Chat',
+  sessions: 'Sessions',
+  files: 'Files',
+  settings: 'Settings',
+  connect: 'Connect',
+  connecting: 'Connecting...',
+  connected: 'Connected',
+  disconnected: 'Disconnected',
+  notConnected: 'Not connected to server',
+  newChat: 'New Chat',
+  send: 'Send',
+  thinking: 'Thinking',
+  inputPlaceholder: 'Message {backend}...',
+  noSessions: 'No sessions',
+  noSessionsHint: 'Send a message to create one',
+  running: 'Running',
+  idle: 'Idle',
+  crashed: 'Crashed',
+  serverAddress: 'Server address',
+  pairingCode: 'Pairing code',
+  pairConnect: 'Connect',
+  authFailed: 'Auth failed',
+  authFailedMsg: 'Wrong or expired pairing code',
+  invalidCode: 'Invalid code',
+  invalidCodeMsg: 'Enter 6-digit code',
+  darkMode: 'Dark mode',
+  language: 'Language',
+  backend: 'Backend',
+  inputTokens: 'In',
+  outputTokens: 'Out',
+  cost: 'Cost',
+  sessionBusy: 'Session busy',
+  howToConnect: 'How to connect',
+  step1: 'Run relay-server on your computer',
+  step2: 'Copy the pairing code from terminal',
+  step3: 'Ensure same network',
+  step4: 'Enable Tunnel for remote access',
+};
+
+const locales = { zh, en };
+
+let current: Locale = 'zh';
+
+export function setLocale(l: Locale) { current = l; }
+export function getLocale(): Locale { return current; }
+export function t(key: keyof typeof zh): string {
+  return locales[current][key];
+}

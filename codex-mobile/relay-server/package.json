@@ -1,0 +1,26 @@
+{
+  "name": "codex-mobile-relay",
+  "version": "1.0.0",
+  "description": "Windows relay server for CodexMobile - bridges phone to Claude Code / Codex CLI",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "package": "tsc && pkg dist/index.js --targets node20-win-x64 --output dist/CodexMobile-Relay.exe"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "jsonwebtoken": "^9.0.2",
+    "dotenv": "^16.4.7",
+    "nanoid": "^5.0.9",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/ws": "^8.5.14",
+    "@types/node": "^22.10.0",
+    "@types/jsonwebtoken": "^9.0.7",
+    "tsx": "^4.19.0"
+  }
+}
