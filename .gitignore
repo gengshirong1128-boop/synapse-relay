@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .env
+*.exe
 .synapse/
 .claude/
 node_modules/

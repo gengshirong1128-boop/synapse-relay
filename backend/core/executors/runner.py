@@ -58,6 +58,27 @@ def _safe_under_project(path: Path, project_path: Path) -> bool:
         return False
 
 
+# Flags that would let a launched agent bypass its own permission/sandbox
+# protections. These must never be injectable through extra_args.
+_BLOCKED_ARG_SUBSTRINGS = (
+    "--dangerously-skip-permissions",
+    "--dangerously-bypass-approvals-and-sandbox",
+    "--bypass-permissions",
+    "--yolo",
+    "--full-auto",
+    "--no-sandbox",
+)
+
+
+def _rejected_arg(extra_args: list[str]) -> str | None:
+    """Return the first extra arg that maps to a sandbox/permission bypass, else None."""
+    for arg in extra_args:
+        lowered = str(arg).strip().lower()
+        if any(blocked in lowered for blocked in _BLOCKED_ARG_SUBSTRINGS):
+            return arg
+    return None
+
+
 def _write_prompt_file(project_path: Path, filename: str, prompt: str) -> Path:
     target_dir = project_path / ".synapse" / "execution"
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -82,7 +103,7 @@ def check_executor(binary: str, help_args: list[str] | None = None) -> dict:
     # Fast check only: avoid potentially long `--help` calls.
     version_output = ""
     try:
-        version_run = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=5, shell=False)
+        version_run = subprocess.run([binary, "--version"], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5, shell=False)
         version_output = (version_run.stdout or version_run.stderr or "")[:400]
     except Exception:  # noqa: BLE001
         version_output = ""
@@ -167,6 +188,14 @@ def run_executor(request: ExecutorRunRequest, room_project_path: str) -> Executo
             error="prompt is empty.",
         )
 
+    rejected = _rejected_arg(request.extra_args)
+    if rejected is not None:
+        return ExecutorRunResult(
+            executor_type=request.executor_type,
+            dry_run=request.dry_run,
+            error=f"extra_args contains a blocked sandbox/permission bypass flag: {rejected}",
+        )
+
     prompt_filename = "codex_prompt.md" if request.executor_type == "codex" else "claude_code_prompt.md"
     prompt_file = _write_prompt_file(project_path, prompt_filename, prompt)
 
@@ -217,6 +246,8 @@ def run_executor(request: ExecutorRunRequest, room_project_path: str) -> Executo
             cwd=str(project_path),
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=max(request.timeout_seconds, 1),
             shell=False,
         )

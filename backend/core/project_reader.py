@@ -19,6 +19,7 @@ IGNORED_DIRS = {
     "out",
     "logs",
     ".cache",
+    ".pytest_cache",
     ".next",
     ".nuxt",
     "coverage",
@@ -125,16 +126,19 @@ def is_supported_file(path: Path) -> bool:
 
 def is_path_allowed(project_path: Path) -> tuple[bool, str | None]:
     normalized = str(project_path.resolve()).lower()
+    # Block sensitive system locations by prefix. Do NOT include a bare "c:\\"
+    # here: it would match every path on the C: drive and reject ordinary user
+    # projects. The C: root itself is handled by the exact-match check below.
     blocked_prefixes = [
-        "c:\\",
         "c:\\windows",
+        "c:\\program files",
         "\\\\?\\c:\\windows",
         "/etc",
         "/usr",
         "/bin",
         "/system",
     ]
-    if normalized in {"c:\\", "c:\\"}:
+    if normalized.rstrip("\\/") in {"c:", ""} or normalized in {"c:\\", "/"}:
         return False, "Root drive scanning is blocked."
     if "\\appdata" in normalized:
         return False, "AppData scanning is blocked."

@@ -1,5 +1,7 @@
 ﻿from __future__ import annotations
 
+import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -29,8 +31,6 @@ class HistoryStore:
     @staticmethod
     def _read_json(path: Path, default: Any) -> Any:
         try:
-            import json
-
             if not path.exists():
                 return default
             return json.loads(path.read_text(encoding="utf-8"))
@@ -39,9 +39,11 @@ class HistoryStore:
 
     @staticmethod
     def _write_json(path: Path, payload: Any) -> None:
-        import json
-
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        # Atomic write: a crash mid-write must not leave a truncated file that
+        # would lose the whole room/index on next read.
+        tmp = path.with_name(f"{path.name}.{os.getpid()}.{id(payload)}.tmp")
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(tmp, path)
 
     @staticmethod
     def _trim_preview(text: str, limit: int = 80) -> str:
@@ -81,7 +83,16 @@ class HistoryStore:
         return tags
 
     def _room_file(self, room_id: str) -> Path:
-        return self.rooms_dir / f"{room_id}.json"
+        # Guard against path traversal: room_id comes from user-controlled URL
+        # path params, so reject anything that is not a plain identifier and
+        # confirm the resolved path stays inside rooms_dir.
+        if not room_id or "/" in room_id or "\\" in room_id or ".." in room_id or "\x00" in room_id:
+            raise ValueError(f"Invalid room_id: {room_id!r}")
+        candidate = (self.rooms_dir / f"{room_id}.json").resolve()
+        rooms_dir = self.rooms_dir.resolve()
+        if candidate.parent != rooms_dir:
+            raise ValueError(f"Invalid room_id: {room_id!r}")
+        return candidate
 
     def _load_index(self) -> list[dict[str, Any]]:
         data = self._read_json(self.index_file, {"items": []})

@@ -173,6 +173,8 @@ def test_local_tool(tool_id: str, timeout_seconds: float = 3.0) -> dict:
                 [exe_path, *args],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=timeout_seconds,
                 shell=False,
                 check=False,
