@@ -56,6 +56,7 @@ interface AuthenticatedClient {
   clientId: string;
   sessionId?: string;
   isAlive: boolean;
+  missedHeartbeats: number;
   pushToken?: string;
   lastActivity: number;
 }
@@ -109,7 +110,7 @@ export class RelayServer {
         log.debug('Received', { msg: str.slice(0, 200) });
         if (str === '{"type":"ping"}') {
           const client = this.clients.get(ws);
-          if (client) client.isAlive = true;
+          if (client) { client.isAlive = true; client.missedHeartbeats = 0; }
           ws.send('{"type":"pong"}');
           return;
         }
@@ -244,7 +245,7 @@ export class RelayServer {
     if (token) {
       const decoded = this.auth.verifyToken(token);
       if (decoded) {
-        this.clients.set(ws, { ws, clientId: decoded.clientId, isAlive: true, lastActivity: Date.now() });
+        this.clients.set(ws, { ws, clientId: decoded.clientId, isAlive: true, missedHeartbeats: 0, lastActivity: Date.now() });
         this.send(ws, { type: 'auth_result', payload: { success: true } });
         return;
       }
@@ -253,7 +254,7 @@ export class RelayServer {
     if (pairingCode && this.auth.verifyPairingCode(pairingCode)) {
       const clientId = randomUUID();
       const newToken = this.auth.generateToken(clientId);
-      this.clients.set(ws, { ws, clientId, isAlive: true, lastActivity: Date.now() });
+      this.clients.set(ws, { ws, clientId, isAlive: true, missedHeartbeats: 0, lastActivity: Date.now() });
       this.send(ws, { type: 'auth_result', payload: { success: true, token: newToken } });
       return;
     }
@@ -598,11 +599,18 @@ export class RelayServer {
 
   private checkHeartbeats(): void {
     for (const [ws, client] of this.clients.entries()) {
-      if (!client.isAlive) {
+      if (client.isAlive) {
+        client.isAlive = false;
+        client.missedHeartbeats = 0;
+        continue;
+      }
+      // Tolerate one missed beat before terminating: the client heartbeat and
+      // this checker both run on ~30s cycles, so a single late ping (tunnel
+      // latency) must not kill an otherwise healthy connection.
+      client.missedHeartbeats += 1;
+      if (client.missedHeartbeats >= 2) {
         ws.terminate();
         this.clients.delete(ws);
-      } else {
-        client.isAlive = false;
       }
     }
   }
