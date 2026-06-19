@@ -27,6 +27,7 @@ jobs:
       - run: npm audit --audit-level=high --registry=https://registry.npmjs.org --prefix desktop
       - run: python -m pytest backend/tests -q
       - run: npm run lint --prefix 内阁-ai-app
+      - run: npm run test --prefix 内阁-ai-app
       - run: npm run build --prefix 内阁-ai-app
       - run: npm run validate
       - run: python scripts/validate_secret_scan.py
