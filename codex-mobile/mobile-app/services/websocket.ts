@@ -1,3 +1,5 @@
+import { shouldReconnect, reconnectDelayMs } from './reconnect';
+
 export type Backend = 'claude-code' | 'codex';
 
 export interface ClientMessage {
@@ -48,6 +50,8 @@ export class RelayClient {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
+  private hasConnectedOnce = false;
+  private awaitingPong = false;
   private messageQueue: ClientMessage[] = [];
   private _state: ConnectionState = 'disconnected';
   private onStateChange?: (state: ConnectionState) => void;
@@ -63,6 +67,9 @@ export class RelayClient {
     this.url = url;
     this.token = token || null;
     this.maxReconnectAttempts = 10;
+    this.reconnectAttempts = 0;
+    this.hasConnectedOnce = false;
+    this.awaitingPong = false;
     this.doConnect();
   }
 
@@ -78,6 +85,8 @@ export class RelayClient {
     this.ws.onopen = () => {
       this.setState('connected');
       this.reconnectAttempts = 0;
+      this.hasConnectedOnce = true;
+      this.awaitingPong = false;
       this.startHeartbeat();
       if (this.token) {
         this.sendRaw({ type: 'auth', payload: { token: this.token } });
@@ -88,6 +97,10 @@ export class RelayClient {
     this.ws.onmessage = (event) => {
       try {
         const raw = JSON.parse(event.data as string);
+        if (raw.type === 'pong') {
+          this.awaitingPong = false;
+          return;
+        }
         if (raw.type === '__chunk') {
           const { chunkId, index, total, data } = raw.payload;
           if (!this.chunkBuffers.has(chunkId)) {
@@ -126,8 +139,15 @@ export class RelayClient {
   }
 
   private scheduleReconnect(): void {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) return;
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+    // Once we've connected successfully, keep retrying indefinitely — free
+    // tunnels drop idle sockets often, and giving up would strand the user on a
+    // dead connection. Only the very first connect attempt is capped.
+    if (!shouldReconnect({
+      reconnectAttempts: this.reconnectAttempts,
+      maxReconnectAttempts: this.maxReconnectAttempts,
+      hasConnectedOnce: this.hasConnectedOnce,
+    })) return;
+    const delay = reconnectDelayMs(this.reconnectAttempts);
     this.reconnectAttempts++;
     this.reconnectTimer = setTimeout(() => this.doConnect(), delay);
   }
@@ -135,6 +155,13 @@ export class RelayClient {
   private startHeartbeat(): void {
     this.heartbeatTimer = setInterval(() => {
       if (this.ws?.readyState === WebSocket.OPEN) {
+        // If the previous ping never got a pong, the link is dead (common with
+        // free tunnels that silently drop idle WebSockets). Force a reconnect.
+        if (this.awaitingPong) {
+          this.ws.close();
+          return;
+        }
+        this.awaitingPong = true;
         this.ws.send(JSON.stringify({ type: 'ping' }));
       }
     }, 30000);
@@ -143,6 +170,7 @@ export class RelayClient {
   private stopHeartbeat(): void {
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
     this.heartbeatTimer = null;
+    this.awaitingPong = false;  // reset so a reconnect starts with a clean ping cycle
   }
 
   private flushQueue(): void {
@@ -176,9 +204,11 @@ export class RelayClient {
   }
 
   disconnect(): void {
-    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
     this.stopHeartbeat();
     this.maxReconnectAttempts = 0;
+    this.hasConnectedOnce = false;  // user-initiated: do not auto-reconnect
+    this.awaitingPong = false;
     this.ws?.close();
     this.ws = null;
     this.setState('disconnected');
