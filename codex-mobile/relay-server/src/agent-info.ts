@@ -185,10 +185,10 @@ function quoteShellArg(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
-function uniqueStrings(values: string[]): string[] {
+export function uniqueStrings(values: string[]): string[] {
   return Array.from(new Set(values.map(cleanModelName).filter(Boolean)));
 }
 
-function cleanModelName(value: string): string {
+export function cleanModelName(value: string): string {
   return value.replace(/\u001b\[[0-9;]*m/g, '').replace(/\[[0-9;]*m\]/g, '').trim();
 }
