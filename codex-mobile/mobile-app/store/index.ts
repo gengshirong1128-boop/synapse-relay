@@ -311,9 +311,20 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setActiveSession: (id) => set((s) => {
     const session = s.sessions.find(sess => sess.id === id);
+    if (!session) return { activeSessionId: id };
+    // Align backend AND transportMode to the opened session, otherwise
+    // useAgentSession's exact match fails (transportMode mismatch) and it falls
+    // back to a different session — making a Codex session show Claude content.
+    const mode = session.transportMode;
+    const backendModePatch = mode
+      ? session.backend === 'codex'
+        ? { codexTransportMode: mode }
+        : { claudeTransportMode: mode }
+      : {};
     return {
       activeSessionId: id,
-      activeBackend: session?.backend ?? s.activeBackend,
+      activeBackend: session.backend,
+      ...backendModePatch,
     };
   }),
 
