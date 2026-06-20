@@ -36,13 +36,16 @@ async function main(): Promise<void> {
 
   log.info('Waiting for connections...');
 
-  // Emit a single scannable QR that carries everything the app needs to pair
-  // (server url + pairing code), so users don't have to hand-type a long
-  // tunnel address. Prefer the public tunnel url when available, else LAN.
-  const wsUrl = tunnelUrl
+  // Emit a single scannable QR that carries everything the app needs to pair.
+  // We send BOTH the LAN url and the tunnel url so the app can prefer the
+  // direct LAN path when on the same WiFi (fast, no idle-disconnects) and fall
+  // back to the tunnel only when off-network. Sending tunnel-only made same-WiFi
+  // traffic detour through Cloudflare overseas — slow and frequently dropped.
+  const lanUrl = `ws://${localIp}:${config.port}`;
+  const tunnelWsUrl = tunnelUrl
     ? tunnelUrl.replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://')
-    : `ws://${localIp}:${config.port}`;
-  await printConnectionQr(wsUrl, pairingCode);
+    : '';
+  await printConnectionQr(lanUrl, tunnelWsUrl, pairingCode);
 
   process.on('SIGINT', () => {
     log.info('Shutting down');
@@ -70,12 +73,14 @@ function printStartupBanner(port: number, pairingCode: string, localIp: string):
   console.log('');
 }
 
-// Print a QR encoding a JSON pairing payload {url, code} so the mobile app can
-// scan once instead of hand-typing a long tunnel address plus the code.
-async function printConnectionQr(wsUrl: string, pairingCode: string): Promise<void> {
-  const payload = JSON.stringify({ url: wsUrl, code: pairingCode });
+// Print a QR encoding a JSON pairing payload {lanUrl, tunnelUrl, code} so the
+// mobile app can scan once and then pick the best path: LAN when reachable
+// (same WiFi → direct, fast), tunnel otherwise (remote / 4G).
+async function printConnectionQr(lanUrl: string, tunnelUrl: string, pairingCode: string): Promise<void> {
+  const payload = JSON.stringify({ lanUrl, tunnelUrl, code: pairingCode });
   console.log('');
-  console.log(`  Connect URL : ${wsUrl}`);
+  console.log(`  LAN URL     : ${lanUrl}  (同一 WiFi，优先、快)`);
+  if (tunnelUrl) console.log(`  Tunnel URL  : ${tunnelUrl}  (外网/4G 兜底)`);
   console.log(`  Pairing code: ${pairingCode}`);
   console.log('  Scan this QR in the app (or enter the above manually):');
   console.log('');
@@ -83,7 +88,7 @@ async function printConnectionQr(wsUrl: string, pairingCode: string): Promise<vo
     const qr: any = await import('qrcode-terminal');
     qr.generate(payload, { small: true });
   } catch {
-    // qrcode-terminal is optional; the printed URL + code above is the fallback.
+    // qrcode-terminal is optional; the printed URLs + code above is the fallback.
   }
 }
 

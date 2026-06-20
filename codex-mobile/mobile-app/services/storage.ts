@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 const KEYS = {
   AUTH_TOKEN: 'relay_auth_token',
   SERVER_URL: 'relay_server_url',
+  SERVER_URLS: 'relay_server_urls',
   API_CONFIG: 'relay_api_config',
   THEME: 'app_theme',
 } as const;
@@ -35,6 +36,23 @@ export const storage = {
 
   async setServerUrl(url: string): Promise<void> {
     await setItem(KEYS.SERVER_URL, url);
+  },
+
+  // The full ordered candidate list (LAN first, tunnel fallback) so a reconnect
+  // after app restart can still prefer the fast LAN path.
+  async getServerUrls(): Promise<string[] | null> {
+    const raw = await getItem(KEYS.SERVER_URLS);
+    if (!raw) return null;
+    try {
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr.filter((u): u is string => typeof u === 'string') : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async setServerUrls(urls: string[]): Promise<void> {
+    await setItem(KEYS.SERVER_URLS, JSON.stringify(urls));
   },
 
   async getApiConfig(): Promise<{ baseUrl: string; apiKey: string; model: string } | null> {

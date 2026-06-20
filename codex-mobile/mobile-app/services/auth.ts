@@ -3,11 +3,13 @@ import { storage } from './storage';
 import { useAppStore } from '../store';
 
 export async function attemptAutoConnect(): Promise<boolean> {
-  const url = await storage.getServerUrl();
+  const urls = await storage.getServerUrls();
+  const singleUrl = await storage.getServerUrl();
   const token = await storage.getToken();
-  if (!url || !token) return false;
+  const candidates = (urls && urls.length ? urls : (singleUrl ? [singleUrl] : []));
+  if (!candidates.length || !token) return false;
 
-  useAppStore.getState().setServerUrl(url);
+  useAppStore.getState().setServerUrl(candidates[candidates.length - 1]);
 
   return new Promise((resolve) => {
     let settled = false;
@@ -38,15 +40,18 @@ export async function attemptAutoConnect(): Promise<boolean> {
       }
     });
 
-    relayClient.connect(url);
+    relayClient.connect(candidates);
 
-    timer = setTimeout(() => finish(false), 10000);
+    timer = setTimeout(() => finish(false), 15000);
   });
 }
 
-export async function pairAndSave(url: string, code: string): Promise<boolean> {
-  await storage.setServerUrl(url);
-  useAppStore.getState().setServerUrl(url);
+export async function pairAndSave(candidates: string[], code: string): Promise<boolean> {
+  const list = candidates.map(u => (u || '').trim()).filter(Boolean);
+  if (!list.length) return false;
+  await storage.setServerUrls(list);
+  await storage.setServerUrl(list[list.length - 1]);
+  useAppStore.getState().setServerUrl(list[list.length - 1]);
 
   relayClient.disconnect();
 
@@ -83,7 +88,7 @@ export async function pairAndSave(url: string, code: string): Promise<boolean> {
       }
     });
 
-    relayClient.connect(url);
-    timer = setTimeout(() => finish(false), 10000);
+    relayClient.connect(list);
+    timer = setTimeout(() => finish(false), 15000);
   });
 }

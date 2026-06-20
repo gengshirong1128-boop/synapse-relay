@@ -44,6 +44,12 @@ type MessageHandler = (msg: ServerMessage) => void;
 export class RelayClient {
   private ws: WebSocket | null = null;
   private url: string = '';
+  // Ordered connect candidates, LAN first then tunnel. We try LAN with a short
+  // probe timeout so same-WiFi users get the fast direct path, and only fall
+  // back to the tunnel when LAN can't be reached (remote / 4G).
+  private candidates: string[] = [];
+  private candidateIndex = 0;
+  private probeTimer: ReturnType<typeof setTimeout> | null = null;
   private token: string | null = null;
   private handlers = new Set<MessageHandler>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -57,14 +63,21 @@ export class RelayClient {
   private onStateChange?: (state: ConnectionState) => void;
   private chunkBuffers = new Map<string, { total: number; parts: string[] }>();
 
+  // LAN probe budget. A reachable same-subnet socket opens in well under this;
+  // if it doesn't, we assume we're off-network and move on to the tunnel.
+  private static readonly LAN_PROBE_MS = 3000;
+
   get state(): ConnectionState { return this._state; }
 
   setStateListener(fn: (state: ConnectionState) => void): void {
     this.onStateChange = fn;
   }
 
-  connect(url: string, token?: string): void {
-    this.url = url;
+  connect(urls: string | string[], token?: string): void {
+    const list = (Array.isArray(urls) ? urls : [urls]).map(u => (u || '').trim()).filter(Boolean);
+    this.candidates = list.length ? list : [''];
+    this.candidateIndex = 0;
+    this.url = this.candidates[0];
     this.token = token || null;
     this.maxReconnectAttempts = 10;
     this.reconnectAttempts = 0;
@@ -75,14 +88,27 @@ export class RelayClient {
 
   private doConnect(): void {
     this.setState('connecting');
+    this.url = this.candidates[this.candidateIndex] || this.candidates[0] || this.url;
     try {
       this.ws = new WebSocket(this.url);
     } catch {
-      this.scheduleReconnect();
+      this.advanceOrReconnect();
       return;
     }
 
+    // If there's another candidate to try (e.g. LAN before tunnel), give this
+    // one a short probe window; on timeout, close it and try the next.
+    const hasFallback = this.candidateIndex < this.candidates.length - 1;
+    if (hasFallback) {
+      this.probeTimer = setTimeout(() => {
+        if (this._state !== 'connected') {
+          try { this.ws?.close(); } catch { /* noop */ }
+        }
+      }, RelayClient.LAN_PROBE_MS);
+    }
+
     this.ws.onopen = () => {
+      this.clearProbe();
       this.setState('connected');
       this.reconnectAttempts = 0;
       this.hasConnectedOnce = true;
@@ -123,14 +149,35 @@ export class RelayClient {
     };
 
     this.ws.onclose = () => {
-      this.setState('disconnected');
+      this.clearProbe();
       this.stopHeartbeat();
+      // If we never connected on this candidate and a fallback remains, try the
+      // next address immediately instead of waiting out a reconnect backoff.
+      if (this._state !== 'connected' && !this.hasConnectedOnce && this.candidateIndex < this.candidates.length - 1) {
+        this.candidateIndex++;
+        this.doConnect();
+        return;
+      }
+      this.setState('disconnected');
       this.scheduleReconnect();
     };
 
     this.ws.onerror = () => {
       this.ws?.close();
     };
+  }
+
+  private clearProbe(): void {
+    if (this.probeTimer) { clearTimeout(this.probeTimer); this.probeTimer = null; }
+  }
+
+  private advanceOrReconnect(): void {
+    if (!this.hasConnectedOnce && this.candidateIndex < this.candidates.length - 1) {
+      this.candidateIndex++;
+      this.doConnect();
+    } else {
+      this.scheduleReconnect();
+    }
   }
 
   private setState(s: ConnectionState): void {
@@ -219,6 +266,7 @@ export class RelayClient {
 
   disconnect(): void {
     if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
+    this.clearProbe();
     this.stopHeartbeat();
     this.maxReconnectAttempts = 0;
     this.hasConnectedOnce = false;  // user-initiated: do not auto-reconnect

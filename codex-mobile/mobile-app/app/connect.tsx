@@ -4,38 +4,50 @@ import { useRouter } from 'expo-router';
 import { useAppStore } from '../store';
 import { pairAndSave } from '../services/auth';
 import { validateRelayUrl } from '../services/relayUrl';
+import { connectionCandidates } from '../services/pairing';
 import { getTheme } from '../theme/colors';
 
 export default function ConnectScreen() {
   const router = useRouter();
   const { serverUrl, activeBackend, theme, scannedPairing, setScannedPairing } = useAppStore();
   const colors = getTheme(activeBackend === 'codex' ? 'codex' : 'claude', theme);
-  const [url, setUrl] = useState(serverUrl || 'ws://');
+  const [lanUrl, setLanUrl] = useState('');
+  const [tunnelUrl, setTunnelUrl] = useState(serverUrl && /^wss/i.test(serverUrl) ? serverUrl : '');
   const [code, setCode] = useState('');
   const [connecting, setConnecting] = useState(false);
 
-  // When the scanner returns a {url, code} payload, prefill the form and clear
-  // it from the store so it doesn't re-apply on a later visit.
+  // When the scanner returns a {lanUrl, tunnelUrl, code} payload, prefill the
+  // form and clear it from the store so it doesn't re-apply on a later visit.
   useEffect(() => {
     if (scannedPairing) {
-      if (scannedPairing.url) setUrl(scannedPairing.url);
+      if (scannedPairing.lanUrl) setLanUrl(scannedPairing.lanUrl);
+      if (scannedPairing.tunnelUrl) setTunnelUrl(scannedPairing.tunnelUrl);
       if (scannedPairing.code) setCode(scannedPairing.code);
       setScannedPairing(null);
     }
   }, [scannedPairing, setScannedPairing]);
 
   const handleConnect = async () => {
-    const urlCheck = validateRelayUrl(url);
-    if (!urlCheck.ok) {
-      Alert.alert('地址无效', urlCheck.reason || '请检查服务器地址');
+    // Validate whichever addresses were provided; at least one must be valid.
+    const checks = [lanUrl, tunnelUrl].filter(u => u.trim()).map(u => validateRelayUrl(u));
+    const valid = checks.filter(c => c.ok).map(c => c.value);
+    if (!valid.length) {
+      const firstErr = checks.find(c => !c.ok);
+      Alert.alert('地址无效', firstErr?.reason || '请至少填写一个有效的服务器地址');
       return;
     }
     if (code.trim().length !== 6) {
       Alert.alert('配对码无效', '请输入 6 位配对码');
       return;
     }
+    // LAN first, tunnel fallback.
+    const candidates = connectionCandidates({
+      lanUrl: checks.find(c => c.ok && /^ws:\/\//i.test(c.value))?.value,
+      tunnelUrl: checks.find(c => c.ok && /^wss:\/\//i.test(c.value))?.value,
+    });
+    const ordered = candidates.length ? candidates : valid;
     setConnecting(true);
-    const ok = await pairAndSave(urlCheck.value, code.trim());
+    const ok = await pairAndSave(ordered, code.trim());
     setConnecting(false);
     if (ok) {
       Alert.alert('连接成功', '已连接到中继服务', [
@@ -64,12 +76,23 @@ export default function ConnectScreen() {
         <View style={[styles.dividerLine, { backgroundColor: colors.inputBorder }]} />
       </View>
 
-      <Text style={[styles.label, { color: colors.textSecondary }]}>服务器地址</Text>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>局域网地址（同 WiFi，优先，快）</Text>
       <TextInput
         style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
-        value={url}
-        onChangeText={setUrl}
+        value={lanUrl}
+        onChangeText={setLanUrl}
         placeholder="ws://192.168.1.100:8765"
+        placeholderTextColor={colors.placeholder}
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+
+      <Text style={[styles.label, { color: colors.textSecondary }]}>外网地址（出门/4G 兜底，可选）</Text>
+      <TextInput
+        style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
+        value={tunnelUrl}
+        onChangeText={setTunnelUrl}
+        placeholder="wss://xxx.trycloudflare.com"
         placeholderTextColor={colors.placeholder}
         autoCapitalize="none"
         autoCorrect={false}
