@@ -74,7 +74,7 @@ export default function ConnectScreen() {
         style={[styles.scanBtn, { backgroundColor: colors.accent }]}
         onPress={() => router.push('/scan')}
       >
-        <Text style={styles.scanBtnText}>扫描二维码连接</Text>
+        <Text style={[styles.scanBtnText, { color: colors.bg }]}>扫描二维码连接</Text>
       </Pressable>
 
       <View style={styles.dividerRow}>
@@ -126,7 +126,7 @@ export default function ConnectScreen() {
         onPress={handleConnect}
         disabled={connecting}
       >
-        <Text style={styles.connectBtnText}>{connecting ? '连接中...' : '连接'}</Text>
+        <Text style={[styles.connectBtnText, { color: colors.bg }]}>{connecting ? '连接中...' : '连接'}</Text>
       </Pressable>
 
       <View style={[styles.helpSection, { backgroundColor: colors.surface }]}>
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '700', marginTop: 20 },
   hint: { fontSize: 14, marginTop: 8, marginBottom: 24 },
   scanBtn: { borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginBottom: 20 },
-  scanBtnText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  scanBtnText: { fontSize: 17, fontWeight: '600' },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   dividerLine: { flex: 1, height: 1 },
   dividerText: { fontSize: 13, marginHorizontal: 12 },
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   codeInput: { fontSize: 24, letterSpacing: 8, textAlign: 'center' },
   connectBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
   connectBtnDisabled: { opacity: 0.5 },
-  connectBtnText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  connectBtnText: { fontSize: 17, fontWeight: '600' },
   helpSection: { marginTop: 40, padding: 16, borderRadius: 12 },
   helpTitle: { fontSize: 15, fontWeight: '600', marginBottom: 8 },
   helpText: { fontSize: 13, lineHeight: 22 },
