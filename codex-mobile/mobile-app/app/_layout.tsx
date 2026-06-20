@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet, useColorScheme, AppState } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useEffect } from 'react';
 import { attemptAutoConnect } from '../services/auth';
 import { relayClient } from '../services/websocket';
@@ -36,19 +37,20 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
-      <Stack screenOptions={{
-        headerStyle: { backgroundColor: colors.headerBg },
-        headerTintColor: colors.headerText,
-        contentStyle: { backgroundColor: colors.bg },
-      }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="connect" options={{ title: '连接服务器', presentation: 'modal' }} />
-        <Stack.Screen name="profiles" options={{ title: 'API 配置管理', presentation: 'modal' }} />
-        <Stack.Screen name="chat/[id]" options={{ title: '对话' }} />
-      </Stack>
-    </View>
+    <SafeAreaProvider>
+      <View style={[styles.container, { backgroundColor: colors.bg }]}>
+        <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+        <Stack screenOptions={{
+          headerStyle: { backgroundColor: colors.headerBg },
+          headerTintColor: colors.headerText,
+          contentStyle: { backgroundColor: colors.bg },
+        }}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="connect" options={{ title: '连接服务器', presentation: 'modal' }} />
+          <Stack.Screen name="profiles" options={{ title: 'API 配置管理', presentation: 'modal' }} />
+        </Stack>
+      </View>
+    </SafeAreaProvider>
   );
 }
 

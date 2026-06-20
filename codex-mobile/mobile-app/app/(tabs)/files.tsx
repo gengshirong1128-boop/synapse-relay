@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, RefreshControl, Pressable, TextInput, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '../../store';
 import { relayClient } from '../../services/websocket';
 import { FileTree } from '../../components/FileTree';
@@ -7,6 +8,7 @@ import { getTheme } from '../../theme/colors';
 
 export default function FilesScreen() {
   const { connectionState, activeBackend, theme, workspacePath } = useAppStore();
+  const insets = useSafeAreaInsets();
   const colors = getTheme(activeBackend === 'codex' ? 'codex' : 'claude', theme);
   const [files, setFiles] = useState<{ name: string; type: 'file' | 'dir'; size: number }[]>([]);
   const [currentPath, setCurrentPath] = useState('.');
@@ -64,7 +66,7 @@ export default function FilesScreen() {
 
   if (connectionState !== 'connected') {
     return (
-      <View style={[styles.empty, { backgroundColor: colors.bg }]}>
+      <View style={[styles.empty, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>请先连接服务器</Text>
       </View>
     );
@@ -72,7 +74,7 @@ export default function FilesScreen() {
 
   if (fileContent !== null) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      <View style={[styles.container, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
         <View style={[styles.fileHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <Pressable onPress={() => setFileContent(null)}>
             <Text style={[styles.backBtn, { color: colors.accent }]}>← 返回</Text>
@@ -87,7 +89,7 @@ export default function FilesScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+    <View style={[styles.container, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
       <View style={[styles.breadcrumb, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         {breadcrumbs.map((seg, i) => (
           <React.Fragment key={i}>

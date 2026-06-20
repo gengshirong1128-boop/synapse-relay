@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Switch, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EffortLevel, PermissionMode, ResponseSpeed, TransportMode, useAppStore } from '../../store';
 import { useRouter } from 'expo-router';
 import { BackendBrand, getTheme } from '../../theme/colors';
@@ -43,6 +44,7 @@ export default function SettingsScreen() {
   } = useAppStore();
 
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [localUrl, setLocalUrl] = useState(serverUrl);
   const [lang, setLang] = useState<Locale>(getLocale());
   const brand: BackendBrand = activeBackend === 'codex' ? 'codex' : 'claude';
@@ -75,7 +77,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View style={[st.container, { backgroundColor: colors.bg }]}>
+    <View style={[st.container, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
       <ScrollView style={st.scroller} contentContainerStyle={st.content}>
         <SectionLabel colors={colors} label="AGENT" />
 

@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { AgentComposer } from '../../components/agent/AgentComposer';
@@ -13,6 +14,7 @@ import { useAppStore } from '../../store';
 
 export default function ChatScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { connectionState } = useAppStore();
   const agent = useAgentSession();
 
@@ -48,7 +50,7 @@ export default function ChatScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: agent.colors.bg }]}
+      style={[styles.container, { backgroundColor: agent.colors.bg, paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={90}
     >

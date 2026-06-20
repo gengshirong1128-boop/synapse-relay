@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, SectionList, Pressable, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Backend, relayClient } from '../../services/websocket';
 import { Session, useAppStore } from '../../store';
@@ -13,6 +14,7 @@ type SessionSection = {
 export default function SessionsScreen() {
   const { sessions, activeSessionId, activeBackend, theme, setActiveSession, updateSessionState, startNewSession } = useAppStore();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const colors = getTheme(activeBackend === 'codex' ? 'codex' : 'claude', theme);
 
@@ -51,7 +53,7 @@ export default function SessionsScreen() {
   ].filter(section => section.data.length > 0);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+    <View style={[styles.container, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
       <Pressable onPress={newChat} style={[styles.newChatBar, { backgroundColor: colors.accent }]}>
         <Text style={[styles.newChatText, { color: colors.bg }]}>＋ 新建对话</Text>
       </Pressable>
