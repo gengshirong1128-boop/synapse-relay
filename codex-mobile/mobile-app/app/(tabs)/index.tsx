@@ -33,6 +33,7 @@ export default function ChatScreen() {
       <AgentDisconnected
         backend={agent.backend}
         colors={agent.colors}
+        connectionState={connectionState}
         onConnect={() => router.push('/connect')}
       />
     );

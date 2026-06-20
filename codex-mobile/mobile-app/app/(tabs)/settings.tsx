@@ -188,7 +188,8 @@ export default function SettingsScreen() {
             onChange={(value) => setPermissionMode(value as PermissionMode)}
           />
           <Text style={[st.sub, { color: colors.textTertiary }]}>
-            Codex Desktop 的中途审批会弹到手机；CLI 模式按本机命令参数执行。
+            想在手机上实时点「允许/拒绝」，需用 Codex Desktop（app-server）模式；
+            CLI 模式下权限按上面的选择预先授权，不会中途弹审批。
           </Text>
         </SettingsCard>
 
