@@ -12,13 +12,13 @@ export default function TabLayout() {
 
   return (
     <Tabs tabBar={(props) => <AppTabBar {...props} />} screenOptions={{
+      headerShown: false,
       headerStyle: { backgroundColor: colors.headerBg },
       headerTintColor: colors.headerText,
       headerShadowVisible: false,
     }}>
       <Tabs.Screen name="index" options={{
         title,
-        headerTitleStyle: { fontWeight: '700', fontSize: 17 },
         tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>⌘</Text>,
         tabBarLabel: 'Chat',
       }} />
