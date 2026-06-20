@@ -33,24 +33,32 @@ export default function SessionsScreen() {
     refreshSessions();
   }, []);
 
-  const sections: SessionSection[] = [
-    {
-      title: 'Claude Code Desktop',
-      data: sessions.filter(s => s.backend === 'claude-code' && s.transportMode === 'official-remote'),
-    },
-    {
-      title: 'Claude Code CLI',
-      data: sessions.filter(s => s.backend === 'claude-code' && (!s.transportMode || s.transportMode === 'bridge')),
-    },
-    {
-      title: 'Codex Desktop',
-      data: sessions.filter(s => s.backend === 'codex' && s.transportMode === 'official-remote'),
-    },
-    {
-      title: 'Codex CLI',
-      data: sessions.filter(s => s.backend === 'codex' && (!s.transportMode || s.transportMode === 'bridge')),
-    },
-  ].filter(section => section.data.length > 0);
+  // Only show sessions for the currently selected backend. Otherwise switching
+  // to Codex still shows Claude Code history and the user thinks the wrong
+  // agent is loaded. Switch backends in Settings to see the other side.
+  const sections: SessionSection[] = (
+    activeBackend === 'codex'
+      ? [
+          {
+            title: 'Codex Desktop',
+            data: sessions.filter(s => s.backend === 'codex' && s.transportMode === 'official-remote'),
+          },
+          {
+            title: 'Codex CLI',
+            data: sessions.filter(s => s.backend === 'codex' && (!s.transportMode || s.transportMode === 'bridge')),
+          },
+        ]
+      : [
+          {
+            title: 'Claude Code Desktop',
+            data: sessions.filter(s => s.backend === 'claude-code' && s.transportMode === 'official-remote'),
+          },
+          {
+            title: 'Claude Code CLI',
+            data: sessions.filter(s => s.backend === 'claude-code' && (!s.transportMode || s.transportMode === 'bridge')),
+          },
+        ]
+  ).filter(section => section.data.length > 0);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
