@@ -312,7 +312,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const inScope = [...merged]
       .filter(session => session.backend === s.activeBackend && (!session.transportMode || session.transportMode === mode))
       .sort((a, b) => b.lastActivity - a.lastActivity);
-    const activeStillValid = s.activeSessionId && merged.some(session => session.id === s.activeSessionId);
+    const activeStillValid = !!s.activeSessionId && inScope.some(session => session.id === s.activeSessionId);
     const activeSessionId = activeStillValid ? s.activeSessionId : (inScope[0]?.id ?? null);
 
     return {

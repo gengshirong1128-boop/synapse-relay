@@ -59,15 +59,16 @@ export default function SessionsScreen() {
           },
         ]
   ).filter(section => section.data.length > 0);
+  const emptyTitle = activeBackend === 'codex' ? '暂无 Codex 会话' : '暂无 Claude Code 会话';
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
       <Pressable onPress={newChat} style={[styles.newChatBar, { backgroundColor: colors.accent }]} accessibilityRole="button" accessibilityLabel="新建对话">
         <Text style={[styles.newChatText, { color: colors.bg }]}>＋ 新建对话</Text>
       </Pressable>
-      {sessions.length === 0 ? (
+      {sections.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>暂无会话</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{emptyTitle}</Text>
           <Text style={[styles.emptyHint, { color: colors.textTertiary }]}>发送第一条消息后会自动创建会话</Text>
         </View>
       ) : (

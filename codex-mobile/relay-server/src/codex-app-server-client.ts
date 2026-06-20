@@ -35,6 +35,12 @@ type PendingApproval = {
   timeout: ReturnType<typeof setTimeout>;
 };
 
+type PendingRequest = {
+  resolve: (value: any) => void;
+  reject: (reason: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
+};
+
 export type CodexThreadListItem = {
   id: string;
   backend: 'codex';
@@ -76,7 +82,7 @@ export class CodexAppServerClient extends EventEmitter {
   private ws: WebSocket | null = null;
   private initPromise: Promise<void> | null = null;
   private nextRequestId = 1;
-  private pending = new Map<number, { resolve: (value: any) => void; reject: (reason: Error) => void }>();
+  private pending = new Map<number, PendingRequest>();
   private pendingApprovals = new Map<string, PendingApproval>();
   private sessions = new Map<string, CodexThreadState>();
   private threadToSession = new Map<string, string>();
@@ -229,6 +235,7 @@ export class CodexAppServerClient extends EventEmitter {
     this.ws.on('close', () => {
       this.ws = null;
       for (const pending of this.pending.values()) {
+        clearTimeout(pending.timer);
         pending.reject(new Error('Codex app-server connection closed.'));
       }
       this.pending.clear();
@@ -298,12 +305,13 @@ export class CodexAppServerClient extends EventEmitter {
     const id = this.nextRequestId++;
     this.send({ id, method, params });
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      setTimeout(() => {
-        if (!this.pending.has(id)) return;
+      const timer = setTimeout(() => {
+        const pending = this.pending.get(id);
+        if (!pending) return;
         this.pending.delete(id);
         reject(new Error(`Codex app-server request timed out: ${method}`));
       }, 30000);
+      this.pending.set(id, { resolve, reject, timer });
     });
   }
 
@@ -325,6 +333,7 @@ export class CodexAppServerClient extends EventEmitter {
     if (message.id && this.pending.has(message.id)) {
       const pending = this.pending.get(message.id)!;
       this.pending.delete(message.id);
+      clearTimeout(pending.timer);
       if (message.error) pending.reject(new Error(message.error.message || JSON.stringify(message.error)));
       else pending.resolve(message.result);
       return;

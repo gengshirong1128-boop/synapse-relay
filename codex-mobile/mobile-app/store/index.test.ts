@@ -92,6 +92,27 @@ describe('mergeRemoteSessions', () => {
     ]);
     expect(useAppStore.getState().activeSessionId).toBe('codex-thread:bbb');
   });
+
+  it('resets active session when it belongs to another backend', () => {
+    useAppStore.setState({
+      sessions: [
+        makeSession({ id: 'claude-session:aaa', backend: 'claude-code', transportMode: 'bridge', lastActivity: 5000 }),
+        makeSession({ id: 'codex-thread:bbb', backend: 'codex', transportMode: 'bridge', lastActivity: 1000 }),
+      ],
+      activeSessionId: 'claude-session:aaa',
+      activeBackend: 'codex',
+      codexTransportMode: 'bridge',
+      claudeTransportMode: 'bridge',
+    });
+
+    useAppStore.getState().mergeRemoteSessions([
+      { id: 'claude-session:aaa', backend: 'claude-code', transportMode: 'bridge', lastActivity: 5000 },
+      { id: 'codex-thread:bbb', backend: 'codex', transportMode: 'bridge', lastActivity: 1000 },
+    ]);
+
+    expect(useAppStore.getState().activeBackend).toBe('codex');
+    expect(useAppStore.getState().activeSessionId).toBe('codex-thread:bbb');
+  });
 });
 
 describe('startNewSession', () => {
