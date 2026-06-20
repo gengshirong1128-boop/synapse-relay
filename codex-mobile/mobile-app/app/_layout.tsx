@@ -1,8 +1,9 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { View, StyleSheet, useColorScheme, AppState } from 'react-native';
 import { useEffect } from 'react';
 import { attemptAutoConnect } from '../services/auth';
+import { relayClient } from '../services/websocket';
 import { useRelayMessages } from '../hooks/useRelayMessages';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { useAppStore } from '../store';
@@ -22,6 +23,16 @@ export default function RootLayout() {
 
   useEffect(() => {
     attemptAutoConnect();
+  }, []);
+
+  // Mobile OSes freeze WebSockets in the background; a socket can come back
+  // half-dead. When the app returns to the foreground, reconnect right away so
+  // the user isn't stranded waiting out the exponential backoff.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') relayClient.reconnectNow();
+    });
+    return () => sub.remove();
   }, []);
 
   return (

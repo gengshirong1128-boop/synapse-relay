@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shouldReconnect, reconnectDelayMs } from './reconnect';
+import { shouldReconnect, reconnectDelayMs, shouldReconnectNow } from './reconnect';
 
 describe('shouldReconnect', () => {
   it('retries while under the cap on the first-ever connect sequence', () => {
@@ -30,5 +30,23 @@ describe('reconnectDelayMs', () => {
   it('caps at 30s', () => {
     expect(reconnectDelayMs(10)).toBe(30000);
     expect(reconnectDelayMs(100)).toBe(30000);
+  });
+});
+
+describe('shouldReconnectNow (app foregrounded)', () => {
+  it('reconnects when previously connected but now dropped', () => {
+    expect(shouldReconnectNow({ hasUrl: true, hasConnectedOnce: true, isConnected: false })).toBe(true);
+  });
+
+  it('does nothing when already cleanly connected (no churn on app switch)', () => {
+    expect(shouldReconnectNow({ hasUrl: true, hasConnectedOnce: true, isConnected: true })).toBe(false);
+  });
+
+  it('does nothing before the first successful connect', () => {
+    expect(shouldReconnectNow({ hasUrl: true, hasConnectedOnce: false, isConnected: false })).toBe(false);
+  });
+
+  it('does nothing without a known server url', () => {
+    expect(shouldReconnectNow({ hasUrl: false, hasConnectedOnce: true, isConnected: false })).toBe(false);
   });
 });

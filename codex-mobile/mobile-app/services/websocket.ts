@@ -1,4 +1,4 @@
-import { shouldReconnect, reconnectDelayMs } from './reconnect';
+import { shouldReconnect, reconnectDelayMs, shouldReconnectNow } from './reconnect';
 
 export type Backend = 'claude-code' | 'codex';
 
@@ -197,6 +197,20 @@ export class RelayClient {
   onMessage(handler: MessageHandler): () => void {
     this.handlers.add(handler);
     return () => { this.handlers.delete(handler); };
+  }
+
+  // Called when the app returns to the foreground. Mobile OSes suspend sockets
+  // in the background, so a connection that looks OPEN may actually be dead.
+  // If we're not cleanly connected, cancel any pending backoff and reconnect
+  // immediately instead of making the user wait out the exponential delay.
+  reconnectNow(): void {
+    const isConnected = this._state === 'connected' && this.ws?.readyState === WebSocket.OPEN;
+    if (!shouldReconnectNow({ hasUrl: !!this.url, hasConnectedOnce: this.hasConnectedOnce, isConnected })) return;
+    if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
+    // Tear down any half-dead socket left over from suspension before retrying.
+    if (this.ws) { try { this.ws.close(); } catch { /* already closing */ } this.ws = null; }
+    this.reconnectAttempts = 0;
+    this.doConnect();
   }
 
   setToken(token: string): void {
