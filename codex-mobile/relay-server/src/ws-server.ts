@@ -12,6 +12,7 @@ import { SessionStore } from './session-store';
 import { PushService } from './push-service';
 import { createLogger } from './logger';
 import { readAgentInfo } from './agent-info';
+import { evaluateHeartbeat } from './heartbeat';
 import { discoverWorkspaces } from './workspace-discovery';
 
 const log = createLogger('ws');
@@ -599,16 +600,10 @@ export class RelayServer {
 
   private checkHeartbeats(): void {
     for (const [ws, client] of this.clients.entries()) {
-      if (client.isAlive) {
-        client.isAlive = false;
-        client.missedHeartbeats = 0;
-        continue;
-      }
-      // Tolerate one missed beat before terminating: the client heartbeat and
-      // this checker both run on ~30s cycles, so a single late ping (tunnel
-      // latency) must not kill an otherwise healthy connection.
-      client.missedHeartbeats += 1;
-      if (client.missedHeartbeats >= 2) {
+      const { next, terminate } = evaluateHeartbeat(client);
+      client.isAlive = next.isAlive;
+      client.missedHeartbeats = next.missedHeartbeats;
+      if (terminate) {
         ws.terminate();
         this.clients.delete(ws);
       }

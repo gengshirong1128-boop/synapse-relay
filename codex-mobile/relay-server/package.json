@@ -7,20 +7,22 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "test": "vitest run",
     "package": "tsc && pkg dist/index.js --targets node20-win-x64 --output dist/CodexMobile-Relay.exe"
   },
   "dependencies": {
-    "ws": "^8.18.0",
-    "jsonwebtoken": "^9.0.2",
     "dotenv": "^16.4.7",
+    "jsonwebtoken": "^9.0.2",
     "nanoid": "^5.0.9",
-    "qrcode-terminal": "^0.12.0"
+    "qrcode-terminal": "^0.12.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
-    "@types/ws": "^8.5.14",
-    "@types/node": "^22.10.0",
     "@types/jsonwebtoken": "^9.0.7",
-    "tsx": "^4.19.0"
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.14",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.9"
   }
 }
