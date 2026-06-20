@@ -2,8 +2,15 @@ import jwt from 'jsonwebtoken';
 import { randomInt } from 'crypto';
 import { RelayConfig } from './config';
 
+export type PairingVerificationResult = 'valid' | 'invalid' | 'expired' | 'locked';
+
+const PAIRING_CODE_TTL_MS = 3 * 60 * 1000;
+const MAX_PAIRING_ATTEMPTS = 5;
+
 export class AuthManager {
   private pairingCode: string | null = null;
+  private pairingCodeExpiresAt = 0;
+  private pairingAttempts = 0;
   private config: RelayConfig;
 
   constructor(config: RelayConfig) {
@@ -12,14 +19,40 @@ export class AuthManager {
 
   generatePairingCode(): string {
     this.pairingCode = String(randomInt(100000, 999999));
+    this.pairingCodeExpiresAt = Date.now() + PAIRING_CODE_TTL_MS;
+    this.pairingAttempts = 0;
     return this.pairingCode;
   }
 
   verifyPairingCode(code: string): boolean {
-    if (!this.pairingCode) return false;
-    const valid = code === this.pairingCode;
-    if (valid) this.pairingCode = null;
-    return valid;
+    return this.verifyPairingCodeDetailed(code) === 'valid';
+  }
+
+  verifyPairingCodeDetailed(code: string): PairingVerificationResult {
+    if (!this.pairingCode) return 'invalid';
+    if (Date.now() > this.pairingCodeExpiresAt) {
+      this.clearPairingCode();
+      return 'expired';
+    }
+
+    if (code === this.pairingCode) {
+      this.clearPairingCode();
+      return 'valid';
+    }
+
+    this.pairingAttempts += 1;
+    if (this.pairingAttempts >= MAX_PAIRING_ATTEMPTS) {
+      this.clearPairingCode();
+      return 'locked';
+    }
+
+    return 'invalid';
+  }
+
+  private clearPairingCode(): void {
+    this.pairingCode = null;
+    this.pairingCodeExpiresAt = 0;
+    this.pairingAttempts = 0;
   }
 
   generateToken(clientId: string): string {

@@ -16,6 +16,7 @@ import { evaluateHeartbeat } from './heartbeat';
 import { discoverWorkspaces } from './workspace-discovery';
 
 const log = createLogger('ws');
+const MAX_SOCKET_AUTH_FAILURES = 3;
 
 export interface ClientMessage {
   type: 'auth' | 'command' | 'file_list' | 'file_content' | 'switch_backend'
@@ -62,6 +63,10 @@ interface AuthenticatedClient {
   lastActivity: number;
 }
 
+interface ConnectionAuthState {
+  failures: number;
+}
+
 export class RelayServer {
   private wss: WebSocketServer;
   private auth: AuthManager;
@@ -70,6 +75,7 @@ export class RelayServer {
   private sessionStore: SessionStore;
   private pushService: PushService;
   private clients = new Map<WebSocket, AuthenticatedClient>();
+  private authFailures = new Map<WebSocket, ConnectionAuthState>();
   private heartbeatInterval: ReturnType<typeof setInterval>;
   private timeoutInterval: ReturnType<typeof setInterval>;
 
@@ -108,7 +114,7 @@ export class RelayServer {
       log.info('New connection');
       ws.on('message', (raw) => {
         const str = raw.toString();
-        log.debug('Received', { msg: str.slice(0, 200) });
+        log.debug('Received', safeMessageLog(str));
         if (str === '{"type":"ping"}') {
           const client = this.clients.get(ws);
           if (client) { client.isAlive = true; client.missedHeartbeats = 0; }
@@ -123,7 +129,10 @@ export class RelayServer {
           this.send(ws, { type: 'error', payload: { message: 'Invalid JSON' } });
         }
       });
-      ws.on('close', () => { this.clients.delete(ws); });
+      ws.on('close', () => {
+        this.clients.delete(ws);
+        this.authFailures.delete(ws);
+      });
     });
   }
 
@@ -252,15 +261,33 @@ export class RelayServer {
       }
     }
 
-    if (pairingCode && this.auth.verifyPairingCode(pairingCode)) {
-      const clientId = randomUUID();
-      const newToken = this.auth.generateToken(clientId);
-      this.clients.set(ws, { ws, clientId, isAlive: true, missedHeartbeats: 0, lastActivity: Date.now() });
-      this.send(ws, { type: 'auth_result', payload: { success: true, token: newToken } });
+    if (pairingCode) {
+      const result = this.auth.verifyPairingCodeDetailed(pairingCode);
+      if (result === 'valid') {
+        this.authFailures.delete(ws);
+        const clientId = randomUUID();
+        const newToken = this.auth.generateToken(clientId);
+        this.clients.set(ws, { ws, clientId, isAlive: true, missedHeartbeats: 0, lastActivity: Date.now() });
+        this.send(ws, { type: 'auth_result', payload: { success: true, token: newToken } });
+        return;
+      }
+
+      this.recordAuthFailure(ws, result);
       return;
     }
 
+    this.recordAuthFailure(ws, 'invalid');
+  }
+
+  private recordAuthFailure(ws: WebSocket, reason: string): void {
+    const state = this.authFailures.get(ws) || { failures: 0 };
+    state.failures += 1;
+    this.authFailures.set(ws, state);
+
     this.send(ws, { type: 'auth_result', payload: { success: false } });
+    if (state.failures >= MAX_SOCKET_AUTH_FAILURES || reason === 'expired' || reason === 'locked') {
+      ws.close(4003, 'Authentication failed');
+    }
   }
 
   private async handleCommand(client: AuthenticatedClient, msg: ClientMessage): Promise<void> {
@@ -671,4 +698,38 @@ export class RelayServer {
       ? value as Record<string, unknown>
       : {};
   }
+}
+
+function safeMessageLog(raw: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(raw) as {
+      type?: unknown;
+      sessionId?: unknown;
+      payload?: unknown;
+    };
+    const payload = parsed.payload && typeof parsed.payload === 'object' && !Array.isArray(parsed.payload)
+      ? parsed.payload as Record<string, unknown>
+      : {};
+    return {
+      type: typeof parsed.type === 'string' ? parsed.type : 'unknown',
+      sessionId: typeof parsed.sessionId === 'string' ? parsed.sessionId : undefined,
+      payloadKeys: Object.keys(payload),
+      redacted: redactKeys(payload),
+    };
+  } catch {
+    return { type: 'invalid_json', bytes: raw.length };
+  }
+}
+
+function redactKeys(payload: Record<string, unknown>): Record<string, string> {
+  const sensitive = new Set(['token', 'pairingCode', 'apiKey']);
+  const result: Record<string, string> = {};
+  for (const key of Object.keys(payload)) {
+    if (sensitive.has(key)) {
+      result[key] = '[REDACTED]';
+    } else if (key === 'apiConfig' && payload.apiConfig && typeof payload.apiConfig === 'object') {
+      result[key] = '[REDACTED_API_CONFIG]';
+    }
+  }
+  return result;
 }

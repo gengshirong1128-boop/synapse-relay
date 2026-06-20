@@ -73,17 +73,13 @@ export async function pairAndSave(candidates: string[], code: string): Promise<b
           relayClient.setToken(token);
           storage.setToken(token);
           finish(true);
-        } else {
-          finish(false);
         }
       }
     });
 
-    let authSent = false;
     relayClient.setStateListener((state) => {
       useAppStore.getState().setConnectionState(state);
-      if (state === 'connected' && !authSent) {
-        authSent = true;
+      if (state === 'connected') {
         relayClient.send({ type: 'auth', payload: { pairingCode: code } });
       }
     });
