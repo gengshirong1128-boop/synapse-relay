@@ -60,6 +60,14 @@ export function useAgentSession() {
     relayClient.send({ type: 'session_subscribe', sessionId: activeSession.id, payload: {} });
   }, [connectionState, activeSession?.id]);
 
+  // When the user switches backend (Claude ↔ Codex), refresh the session list so
+  // that backend's sessions show up promptly instead of waiting for a manual
+  // pull-to-refresh on the sessions tab.
+  useEffect(() => {
+    if (connectionState !== 'connected') return;
+    relayClient.send({ type: 'session_list', payload: {} });
+  }, [connectionState, activeBackend]);
+
   const send = useCallback(() => {
     if (!input.trim() || connectionState !== 'connected' || sendBlockedReason) return;
     const text = input.trim();
