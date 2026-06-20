@@ -63,21 +63,38 @@ export async function readAgentInfo(options: ReadAgentInfoOptions): Promise<Agen
   };
 }
 
-// Claude Code CLI accepts model aliases (not just full names) via --model.
-// There is no non-interactive command to enumerate models (/model is a TUI
-// command), so we offer the well-known aliases plus whatever the user has
-// configured. This makes the phone show real, selectable options instead of a
-// single config value.
+// Claude Code CLI accepts model aliases (sonnet/opus/haiku) only on the
+// official Anthropic API. Third-party API users (ANTHROPIC_BASE_URL pointing
+// elsewhere) have their own model names (e.g. claude-opus-4-7[1m]) and those
+// aliases would 404. So we only offer the aliases when no third-party base URL
+// is configured, and always surface whatever the user actually configured.
 const KNOWN_CLAUDE_MODELS = ['sonnet', 'opus', 'haiku'];
+
+function isOfficialAnthropic(baseUrl: string): boolean {
+  if (!baseUrl) return true;
+  try {
+    return /(^|\.)anthropic\.com$/i.test(new URL(baseUrl).hostname);
+  } catch {
+    return false;
+  }
+}
+
+export { isOfficialAnthropic };
 
 async function readClaudeConfig(): Promise<{ model: string; models: string[] }> {
   try {
     const settings = JSON.parse(await readFile(join(homedir(), '.claude', 'settings.json'), 'utf-8')) as {
       model?: string;
-      env?: { ANTHROPIC_MODEL?: string };
+      env?: { ANTHROPIC_MODEL?: string; ANTHROPIC_BASE_URL?: string };
     };
-    const model = cleanModelName(settings.model || settings.env?.ANTHROPIC_MODEL || '');
-    return { model, models: uniqueStrings([model, ...KNOWN_CLAUDE_MODELS]) };
+    const configured = [settings.model, settings.env?.ANTHROPIC_MODEL]
+      .map(m => cleanModelName(m || ''))
+      .filter(Boolean);
+    const model = configured[0] || '';
+    const official = isOfficialAnthropic(settings.env?.ANTHROPIC_BASE_URL || '');
+    // Real configured models first; add generic aliases only on the official API.
+    const models = uniqueStrings(official ? [...configured, ...KNOWN_CLAUDE_MODELS] : configured);
+    return { model, models };
   } catch {
     return { model: '', models: uniqueStrings(KNOWN_CLAUDE_MODELS) };
   }

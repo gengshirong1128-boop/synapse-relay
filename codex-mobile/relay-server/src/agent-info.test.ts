@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { uniqueStrings, cleanModelName } from './agent-info';
+import { uniqueStrings, cleanModelName, isOfficialAnthropic } from './agent-info';
 
 const ESC = '';
 
@@ -34,5 +34,28 @@ describe('uniqueStrings', () => {
     // readClaudeConfig returns uniqueStrings([currentModel, ...KNOWN])
     expect(uniqueStrings(['claude-opus-4-7', 'sonnet', 'opus', 'haiku']))
       .toEqual(['claude-opus-4-7', 'sonnet', 'opus', 'haiku']);
+  });
+});
+
+describe('isOfficialAnthropic', () => {
+  it('treats an empty base url as official (default Anthropic API)', () => {
+    expect(isOfficialAnthropic('')).toBe(true);
+  });
+
+  it('recognizes the official api host', () => {
+    expect(isOfficialAnthropic('https://api.anthropic.com')).toBe(true);
+  });
+
+  it('flags a third-party proxy as NOT official (so aliases are dropped)', () => {
+    // The real user config: claude routed through right.codes with model claude-opus-4-7[1m].
+    expect(isOfficialAnthropic('https://right.codes/claude-aws')).toBe(false);
+  });
+
+  it('does not match look-alike hosts containing anthropic.com as a substring', () => {
+    expect(isOfficialAnthropic('https://anthropic.com.evil.example')).toBe(false);
+  });
+
+  it('treats a malformed url as third-party (safe default: keep only real models)', () => {
+    expect(isOfficialAnthropic('not a url')).toBe(false);
   });
 });
