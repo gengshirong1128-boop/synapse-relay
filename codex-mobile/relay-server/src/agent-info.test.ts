@@ -15,6 +15,16 @@ describe('cleanModelName', () => {
   it('leaves a clean name unchanged', () => {
     expect(cleanModelName('claude-opus-4-7')).toBe('claude-opus-4-7');
   });
+
+  it('keeps a [1m] context-window suffix (must not be mistaken for ANSI)', () => {
+    // Regression: a bare "[1m]" looks like an SGR code but is part of the real
+    // third-party model name; only ESC-prefixed codes may be stripped.
+    expect(cleanModelName('claude-opus-4-7[1m]')).toBe('claude-opus-4-7[1m]');
+  });
+
+  it('strips a real ANSI code while keeping a [1m] model suffix', () => {
+    expect(cleanModelName(`${ESC}[36mclaude-opus-4-7[1m]${ESC}[0m`)).toBe('claude-opus-4-7[1m]');
+  });
 });
 
 describe('uniqueStrings', () => {
