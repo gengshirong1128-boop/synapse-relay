@@ -79,7 +79,7 @@ export default function SettingsScreen() {
       <ScrollView style={st.scroller} contentContainerStyle={st.content}>
         <SectionLabel colors={colors} label="AGENT" />
 
-        <SettingsCard colors={colors} title="Agent 工具" subtitle="切换电脑端真实运行的 agent，连接模式在下面单独选择" icon="◆">
+        <SettingsCard colors={colors} title="Agent 工具" subtitle="切换电脑端真实运行的 agent，连接模式在下面单独选择">
           <AgentSelector activeBackend={activeBackend} colors={colors} onChange={setActiveBackend} />
         </SettingsCard>
 
@@ -88,7 +88,6 @@ export default function SettingsScreen() {
           highlight
           title="模型"
           subtitle={model ? `当前：${model}` : '使用电脑端默认模型'}
-          icon="✦"
         >
           <OptionChips colors={colors} value={model} options={modelOptions} onChange={setModel} />
           <Text style={[st.sub, { color: colors.textTertiary }]}>
@@ -101,7 +100,6 @@ export default function SettingsScreen() {
           highlight
           title="连接模式"
           subtitle={selectedTransportMode === 'official-remote' ? 'Desktop · 官方协议' : 'CLI · 本机命令行'}
-          icon="⇄"
         >
           <OptionChips
             colors={colors}
@@ -139,7 +137,7 @@ export default function SettingsScreen() {
           </Text>
         </SettingsCard>
 
-        <SettingsCard colors={colors} title="工作区" subtitle="agent 在电脑上的运行目录" icon="▣">
+        <SettingsCard colors={colors} title="工作区" subtitle="agent 在电脑上的运行目录">
           <WorkspaceSelector
             colors={colors}
             value={workspacePath}
@@ -151,7 +149,7 @@ export default function SettingsScreen() {
 
         <SectionLabel colors={colors} label="运行参数" />
 
-        <SettingsCard colors={colors} title="思考深度" subtitle={activeBackend === 'codex' ? '写入 Codex model_reasoning_effort' : '传给 Claude Code --effort'} icon="◷">
+        <SettingsCard colors={colors} title="思考深度" subtitle={activeBackend === 'codex' ? '写入 Codex model_reasoning_effort' : '传给 Claude Code --effort'}>
           <OptionChips
             colors={colors}
             value={effortLevel}
@@ -165,7 +163,7 @@ export default function SettingsScreen() {
         </SettingsCard>
 
         {activeBackend === 'codex' && (
-          <SettingsCard colors={colors} title="回复速度" icon="⚡">
+          <SettingsCard colors={colors} title="回复速度">
             <OptionChips
               colors={colors}
               value={codexResponseSpeed}
@@ -178,7 +176,7 @@ export default function SettingsScreen() {
           </SettingsCard>
         )}
 
-        <SettingsCard colors={colors} title="权限" subtitle="实时审批需 Codex Desktop 模式；CLI 模式按此预授权" icon="🔒">
+        <SettingsCard colors={colors} title="权限" subtitle="实时审批需 Codex Desktop 模式；CLI 模式按此预授权">
           <OptionChips
             colors={colors}
             value={permissionMode}
@@ -193,7 +191,7 @@ export default function SettingsScreen() {
         </SettingsCard>
 
         {!!availableTools.length && (
-          <SettingsCard colors={colors} title="本机工具" icon="⚙">
+          <SettingsCard colors={colors} title="本机工具">
             <Text style={[st.sub, { color: colors.textSecondary }]} numberOfLines={4}>
               {availableTools.join(', ')}
             </Text>
@@ -201,7 +199,7 @@ export default function SettingsScreen() {
         )}
 
         <SectionLabel colors={colors} label="连接" />
-        <SettingsCard colors={colors} title={t('serverAddress')} icon="🌐">
+        <SettingsCard colors={colors} title={t('serverAddress')}>
           <TextInput
             style={[st.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
             value={localUrl}

@@ -8,12 +8,11 @@ type Props = {
   // Optional built-in header so callers don't repeat the label/sub markup.
   title?: string;
   subtitle?: string;
-  icon?: string;
   // Emphasized card for the most important settings (model, connection mode).
   highlight?: boolean;
 };
 
-export function SettingsCard({ colors, children, title, subtitle, icon, highlight }: Props) {
+export function SettingsCard({ colors, children, title, subtitle, highlight }: Props) {
   return (
     <View
       style={[
@@ -24,11 +23,8 @@ export function SettingsCard({ colors, children, title, subtitle, icon, highligh
     >
       {!!title && (
         <View style={styles.header}>
-          {!!icon && <Text style={[styles.icon, { color: colors.accent }]}>{icon}</Text>}
-          <View style={styles.headerText}>
-            <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-            {!!subtitle && <Text style={[styles.subtitle, { color: colors.textTertiary }]}>{subtitle}</Text>}
-          </View>
+          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+          {!!subtitle && <Text style={[styles.subtitle, { color: colors.textTertiary }]}>{subtitle}</Text>}
         </View>
       )}
       {children}
@@ -47,9 +43,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   highlight: { borderWidth: 1.5 },
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12 },
-  icon: { fontSize: 17, marginTop: 1 },
-  headerText: { flex: 1, minWidth: 0 },
+  header: { marginBottom: 12 },
   title: { fontSize: 15, fontWeight: '700' },
   subtitle: { fontSize: 12, marginTop: 3, lineHeight: 17 },
 });
