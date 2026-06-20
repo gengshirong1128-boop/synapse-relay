@@ -672,6 +672,7 @@ export class RelayServer {
   close(): void {
     clearInterval(this.heartbeatInterval);
     clearInterval(this.timeoutInterval);
+    this.sessionStore.flush();
     this.wss.close();
   }
 

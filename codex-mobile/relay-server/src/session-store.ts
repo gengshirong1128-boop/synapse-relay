@@ -46,9 +46,11 @@ const DATA_DIR = join(process.cwd(), '.codex-mobile');
 const SESSIONS_FILE = join(DATA_DIR, 'sessions.json');
 const MAX_MESSAGES_PER_SESSION = 300;
 const MAX_MESSAGE_CHARS = 12000;
+const STREAM_SAVE_DEBOUNCE_MS = 500;
 
 export class SessionStore {
   private sessions: PersistedSession[] = [];
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.load();
@@ -69,10 +71,29 @@ export class SessionStore {
   }
 
   private save(): void {
+    this.clearPendingSave();
     if (!existsSync(DATA_DIR)) {
       mkdirSync(DATA_DIR, { recursive: true });
     }
     writeFileSync(SESSIONS_FILE, JSON.stringify(this.sessions, null, 2), 'utf-8');
+  }
+
+  private scheduleSave(): void {
+    if (this.saveTimer) return;
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      this.save();
+    }, STREAM_SAVE_DEBOUNCE_MS);
+  }
+
+  private clearPendingSave(): void {
+    if (!this.saveTimer) return;
+    clearTimeout(this.saveTimer);
+    this.saveTimer = null;
+  }
+
+  flush(): void {
+    this.save();
   }
 
   upsert(session: PersistedSession): void {
@@ -163,7 +184,7 @@ export class SessionStore {
     }
     session.messages = session.messages.slice(-MAX_MESSAGES_PER_SESSION);
     session.lastActivity = Date.now();
-    this.save();
+    this.scheduleSave();
   }
 
   updateToolMessage(id: string, toolId: string, update: Record<string, unknown>): void {
@@ -230,7 +251,7 @@ export class SessionStore {
       ? { ...message, isStreaming: false }
       : message);
     session.lastActivity = Date.now();
-    this.save();
+    this.flush();
   }
 }
 
