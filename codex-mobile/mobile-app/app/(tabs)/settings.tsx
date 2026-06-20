@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { BackendBrand, getTheme } from '../../theme/colors';
 import { getLocale, setLocale, t, Locale } from '../../i18n';
 import { SettingsCard } from '../../components/settings/SettingsCard';
+import { SectionLabel } from '../../components/settings/SectionLabel';
 import { AgentSelector } from '../../components/settings/AgentSelector';
 import { OptionChips } from '../../components/settings/OptionChips';
 import { WorkspaceSelector } from '../../components/settings/WorkspaceSelector';
@@ -76,18 +77,32 @@ export default function SettingsScreen() {
   return (
     <View style={[st.container, { backgroundColor: colors.bg }]}>
       <ScrollView style={st.scroller} contentContainerStyle={st.content}>
-        <Text style={[st.section, { color: colors.textTertiary }]}>{t('settings').toUpperCase()}</Text>
+        <SectionLabel colors={colors} label="AGENT" />
 
-        <SettingsCard colors={colors}>
-          <Text style={[st.label, { color: colors.text }]}>Agent 工具</Text>
+        <SettingsCard colors={colors} title="Agent 工具" subtitle="切换电脑端真实运行的 agent，连接模式在下面单独选择" icon="◆">
           <AgentSelector activeBackend={activeBackend} colors={colors} onChange={setActiveBackend} />
+        </SettingsCard>
+
+        <SettingsCard
+          colors={colors}
+          highlight
+          title="模型"
+          subtitle={model ? `当前：${model}` : '使用电脑端默认模型'}
+          icon="✦"
+        >
+          <OptionChips colors={colors} value={model} options={modelOptions} onChange={setModel} />
           <Text style={[st.sub, { color: colors.textTertiary }]}>
-            切换的是电脑端真实 agent，连接模式在下面单独选择。
+            列表来自电脑端 agent 配置或缓存；选「电脑端默认」时不传 model 参数。
           </Text>
         </SettingsCard>
 
-        <SettingsCard colors={colors}>
-          <Text style={[st.label, { color: colors.text }]}>连接模式</Text>
+        <SettingsCard
+          colors={colors}
+          highlight
+          title="连接模式"
+          subtitle={selectedTransportMode === 'official-remote' ? 'Desktop · 官方协议' : 'CLI · 本机命令行'}
+          icon="⇄"
+        >
           <OptionChips
             colors={colors}
             value={selectedTransportMode}
@@ -120,11 +135,11 @@ export default function SettingsScreen() {
             </Text>
           </View>
           <Text style={[st.sub, { color: colors.textTertiary }]}>
-            Codex Desktop 连接电脑端 app-server；Codex CLI 使用本机 `codex exec`。Claude Code Desktop 入口已保留，发消息仍需等 remote-control 协议接入。
+            Codex Desktop 连电脑端 app-server；CLI 用本机 codex exec。Claude Code Desktop 入口已保留，发消息仍需 remote-control 协议接入。
           </Text>
         </SettingsCard>
 
-        <SettingsCard colors={colors}>
+        <SettingsCard colors={colors} title="工作区" subtitle="agent 在电脑上的运行目录" icon="▣">
           <WorkspaceSelector
             colors={colors}
             value={workspacePath}
@@ -134,16 +149,9 @@ export default function SettingsScreen() {
           />
         </SettingsCard>
 
-        <SettingsCard colors={colors}>
-          <Text style={[st.label, { color: colors.text }]}>模型</Text>
-          <OptionChips colors={colors} value={model} options={modelOptions} onChange={setModel} />
-          <Text style={[st.sub, { color: colors.textTertiary }]}>
-            列表来自电脑端 agent 配置或缓存；选择“电脑端默认”时不传 model 参数。
-          </Text>
-        </SettingsCard>
+        <SectionLabel colors={colors} label="运行参数" />
 
-        <SettingsCard colors={colors}>
-          <Text style={[st.label, { color: colors.text }]}>思考深度</Text>
+        <SettingsCard colors={colors} title="思考深度" subtitle={activeBackend === 'codex' ? '写入 Codex model_reasoning_effort' : '传给 Claude Code --effort'} icon="◷">
           <OptionChips
             colors={colors}
             value={effortLevel}
@@ -154,14 +162,10 @@ export default function SettingsScreen() {
             ]}
             onChange={(value) => setEffortLevel(value as EffortLevel)}
           />
-          <Text style={[st.sub, { color: colors.textTertiary }]}>
-            {activeBackend === 'codex' ? '写入 Codex model_reasoning_effort。' : '传给 Claude Code --effort。'}
-          </Text>
         </SettingsCard>
 
         {activeBackend === 'codex' && (
-          <SettingsCard colors={colors}>
-            <Text style={[st.label, { color: colors.text }]}>回复速度</Text>
+          <SettingsCard colors={colors} title="回复速度" icon="⚡">
             <OptionChips
               colors={colors}
               value={codexResponseSpeed}
@@ -174,8 +178,7 @@ export default function SettingsScreen() {
           </SettingsCard>
         )}
 
-        <SettingsCard colors={colors}>
-          <Text style={[st.label, { color: colors.text }]}>权限</Text>
+        <SettingsCard colors={colors} title="权限" subtitle="实时审批需 Codex Desktop 模式；CLI 模式按此预授权" icon="🔒">
           <OptionChips
             colors={colors}
             value={permissionMode}
@@ -187,24 +190,18 @@ export default function SettingsScreen() {
             ]}
             onChange={(value) => setPermissionMode(value as PermissionMode)}
           />
-          <Text style={[st.sub, { color: colors.textTertiary }]}>
-            想在手机上实时点「允许/拒绝」，需用 Codex Desktop（app-server）模式；
-            CLI 模式下权限按上面的选择预先授权，不会中途弹审批。
-          </Text>
         </SettingsCard>
 
         {!!availableTools.length && (
-          <SettingsCard colors={colors}>
-            <Text style={[st.label, { color: colors.text }]}>本机工具</Text>
+          <SettingsCard colors={colors} title="本机工具" icon="⚙">
             <Text style={[st.sub, { color: colors.textSecondary }]} numberOfLines={4}>
               {availableTools.join(', ')}
             </Text>
           </SettingsCard>
         )}
 
-        <Text style={[st.section, { color: colors.textTertiary }]}>连接</Text>
-        <SettingsCard colors={colors}>
-          <Text style={[st.label, { color: colors.text }]}>{t('serverAddress')}</Text>
+        <SectionLabel colors={colors} label="连接" />
+        <SettingsCard colors={colors} title={t('serverAddress')} icon="🌐">
           <TextInput
             style={[st.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
             value={localUrl}
@@ -222,7 +219,7 @@ export default function SettingsScreen() {
           </Pressable>
         </SettingsCard>
 
-        <Text style={[st.section, { color: colors.textTertiary }]}>外观</Text>
+        <SectionLabel colors={colors} label="外观" />
         <SettingsCard colors={colors}>
           <View style={st.row}>
             <Text style={[st.rowLabel, { color: colors.text }]}>{t('darkMode')}</Text>
@@ -237,7 +234,7 @@ export default function SettingsScreen() {
           </View>
         </SettingsCard>
 
-        <Text style={[st.section, { color: colors.textTertiary }]}>关于</Text>
+        <SectionLabel colors={colors} label="关于" />
         <SettingsCard colors={colors}>
           <Text style={[st.rowLabel, { color: colors.text }]}>CodexMobile v1.0.0</Text>
           <Text style={[st.sub, { color: colors.textSecondary }]}>Remote Claude Code / Codex CLI</Text>
@@ -251,8 +248,6 @@ const st = StyleSheet.create({
   container: { flex: 1, overflow: 'hidden' },
   scroller: { flex: 1, minWidth: 0 },
   content: { paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 24 },
-  section: { fontSize: 12, fontWeight: '700', marginTop: 20, marginBottom: 10, letterSpacing: 1, textTransform: 'uppercase' },
-  label: { fontSize: 14, marginBottom: 6, fontWeight: '700' },
   input: { alignSelf: 'stretch', minWidth: 0, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, marginBottom: 12, borderWidth: 1 },
   btn: { alignSelf: 'stretch', borderRadius: 8, paddingVertical: 10, alignItems: 'center', marginTop: 4 },
   btnText: { fontSize: 15, fontWeight: '700' },
