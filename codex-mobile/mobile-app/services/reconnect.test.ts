@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shouldReconnect, reconnectDelayMs, shouldReconnectNow } from './reconnect';
+import { shouldReconnect, reconnectDelayMs, shouldReconnectNow, nextCandidateAction } from './reconnect';
 
 describe('shouldReconnect', () => {
   it('retries while under the cap on the first-ever connect sequence', () => {
@@ -48,5 +48,27 @@ describe('shouldReconnectNow (app foregrounded)', () => {
 
   it('does nothing without a known server url', () => {
     expect(shouldReconnectNow({ hasUrl: false, hasConnectedOnce: true, isConnected: false })).toBe(false);
+  });
+});
+
+describe('nextCandidateAction (LAN→tunnel failover)', () => {
+  it('advances from LAN (index 0) to tunnel when LAN fails', () => {
+    expect(nextCandidateAction(0, 2)).toBe('advance');
+  });
+
+  it('backs off after the last candidate (tunnel) fails', () => {
+    expect(nextCandidateAction(1, 2)).toBe('backoff');
+  });
+
+  it('backs off immediately when only one candidate exists', () => {
+    expect(nextCandidateAction(0, 1)).toBe('backoff');
+  });
+
+  // Regression: leaving home WiFi after a successful LAN connect must still fail
+  // over to the tunnel. The decision depends only on position in the candidate
+  // list, never on whether we'd connected before.
+  it('failover does not depend on prior connection success', () => {
+    // index 0 of 2 always advances, whether or not we connected earlier
+    expect(nextCandidateAction(0, 2)).toBe('advance');
   });
 });

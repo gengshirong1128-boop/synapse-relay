@@ -1,4 +1,4 @@
-import { shouldReconnect, reconnectDelayMs, shouldReconnectNow } from './reconnect';
+import { shouldReconnect, reconnectDelayMs, shouldReconnectNow, nextCandidateAction } from './reconnect';
 
 export type Backend = 'claude-code' | 'codex';
 
@@ -151,13 +151,18 @@ export class RelayClient {
     this.ws.onclose = () => {
       this.clearProbe();
       this.stopHeartbeat();
-      // If we never connected on this candidate and a fallback remains, try the
-      // next address immediately instead of waiting out a reconnect backoff.
-      if (this._state !== 'connected' && !this.hasConnectedOnce && this.candidateIndex < this.candidates.length - 1) {
+      // Not connected on this candidate and another remains in this round → try
+      // the next address now (e.g. LAN failed, fall back to tunnel). This must
+      // NOT depend on hasConnectedOnce: a user who connected via LAN at home and
+      // then left the network still needs to fail over to the tunnel.
+      if (this._state !== 'connected' && nextCandidateAction(this.candidateIndex, this.candidates.length) === 'advance') {
         this.candidateIndex++;
         this.doConnect();
         return;
       }
+      // Exhausted this round (or a live connection dropped). Reset to the top of
+      // the candidate list so the next backoff attempt re-probes LAN first.
+      this.candidateIndex = 0;
       this.setState('disconnected');
       this.scheduleReconnect();
     };
@@ -172,10 +177,13 @@ export class RelayClient {
   }
 
   private advanceOrReconnect(): void {
-    if (!this.hasConnectedOnce && this.candidateIndex < this.candidates.length - 1) {
+    // WebSocket ctor threw for this candidate; try the next one in the round,
+    // else reset to the top and schedule a backed-off retry.
+    if (nextCandidateAction(this.candidateIndex, this.candidates.length) === 'advance') {
       this.candidateIndex++;
       this.doConnect();
     } else {
+      this.candidateIndex = 0;
       this.scheduleReconnect();
     }
   }

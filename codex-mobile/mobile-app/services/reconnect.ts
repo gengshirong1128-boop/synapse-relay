@@ -44,3 +44,18 @@ export interface ForegroundReconnectState {
 export function shouldReconnectNow(state: ForegroundReconnectState): boolean {
   return state.hasUrl && state.hasConnectedOnce && !state.isConnected;
 }
+
+/**
+ * After a connect attempt on candidate `index` fails (of `total` ordered
+ * candidates, LAN first then tunnel), decide what to do next:
+ *  - 'advance': try the next candidate immediately (e.g. LAN failed → tunnel)
+ *  - 'backoff': all candidates in this round tried → reset to top, wait, retry
+ *
+ * Crucially this does NOT depend on whether we've ever connected: a user who
+ * connected via LAN at home and then left the WiFi must still fail over to the
+ * tunnel. (Regression guard — the earlier version gated advance on
+ * !hasConnectedOnce and got stuck retrying LAN forever once connected.)
+ */
+export function nextCandidateAction(index: number, total: number): 'advance' | 'backoff' {
+  return index < total - 1 ? 'advance' : 'backoff';
+}
