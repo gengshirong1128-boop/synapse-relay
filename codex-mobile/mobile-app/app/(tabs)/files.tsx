@@ -124,20 +124,15 @@ export default function FilesScreen() {
           </Pressable>
         )}
       </View>
-      <ScrollView
+      <FileTree
+        files={visibleFiles}
+        currentPath={currentPath}
+        colors={colors}
+        onNavigate={handleNavigate}
+        onFilePress={handleFilePress}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
-      >
-        <FileTree
-          files={visibleFiles}
-          currentPath={currentPath}
-          colors={colors}
-          onNavigate={handleNavigate}
-          onFilePress={handleFilePress}
-        />
-        {q && visibleFiles.length === 0 && (
-          <Text style={[styles.noResult, { color: colors.textTertiary }]}>没有匹配「{query}」的文件</Text>
-        )}
-      </ScrollView>
+        emptyHint={q && visibleFiles.length === 0 ? `没有匹配「${query}」的文件` : undefined}
+      />
     </View>
   );
 }

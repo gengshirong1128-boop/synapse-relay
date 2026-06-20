@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, FlatList } from 'react-native';
+import type { RefreshControlProps } from 'react-native';
 import { ThemeColors } from '../theme/colors';
 
 interface FileEntry {
@@ -14,9 +15,11 @@ interface Props {
   onFilePress: (path: string) => void;
   currentPath: string;
   colors: ThemeColors;
+  refreshControl?: React.ReactElement<RefreshControlProps>;
+  emptyHint?: string;
 }
 
-export function FileTree({ files, onNavigate, onFilePress, currentPath, colors }: Props) {
+export function FileTree({ files, onNavigate, onFilePress, currentPath, colors, refreshControl, emptyHint }: Props) {
   const sorted = [...files].sort((a, b) => {
     if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
     return a.name.localeCompare(b.name);
@@ -24,18 +27,26 @@ export function FileTree({ files, onNavigate, onFilePress, currentPath, colors }
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.path, { color: colors.textTertiary, backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        {currentPath}
-      </Text>
-      {currentPath !== '.' && (
-        <Pressable onPress={() => onNavigate('..')} style={[styles.item, { borderBottomColor: colors.border }]}>
-          <Text style={[styles.kind, { color: colors.textTertiary }]}>DIR</Text>
-          <Text style={[styles.dirName, { color: colors.accent }]}>..</Text>
-        </Pressable>
-      )}
       <FlatList
         data={sorted}
         keyExtractor={(item) => item.name}
+        refreshControl={refreshControl}
+        ListHeaderComponent={
+          <>
+            <Text style={[styles.path, { color: colors.textTertiary, backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+              {currentPath}
+            </Text>
+            {currentPath !== '.' && (
+              <Pressable onPress={() => onNavigate('..')} style={[styles.item, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.kind, { color: colors.textTertiary }]}>DIR</Text>
+                <Text style={[styles.dirName, { color: colors.accent }]}>..</Text>
+              </Pressable>
+            )}
+          </>
+        }
+        ListEmptyComponent={
+          emptyHint ? <Text style={[styles.emptyHint, { color: colors.textTertiary }]}>{emptyHint}</Text> : null
+        }
         renderItem={({ item }) => (
           <Pressable
             onPress={() => item.type === 'dir' ? onNavigate(item.name) : onFilePress(item.name)}
@@ -74,4 +85,5 @@ const styles = StyleSheet.create({
   dirName: { fontSize: 15, flex: 1, fontWeight: '600' },
   fileName: { fontSize: 15, flex: 1 },
   size: { fontSize: 12 },
+  emptyHint: { textAlign: 'center', fontSize: 13, paddingVertical: 24 },
 });
