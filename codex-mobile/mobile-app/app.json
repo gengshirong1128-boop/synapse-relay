@@ -14,7 +14,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.codexmobile.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "扫描中继服务的连接二维码以快速配对。"
+        "NSCameraUsageDescription": "扫描中继服务的连接二维码以快速配对。",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
