@@ -73,17 +73,25 @@ export function useAgentSession() {
     const text = input.trim();
     setInput('');
 
-    const workspaceChanged = !!workspacePath && !!activeSession?.cwd && activeSession.cwd !== workspacePath;
+    // Remote/history sessions (claude-session:/codex-thread:) must resume in
+    // their own recorded cwd. Forking them because the global workspace differs
+    // would break `claude --resume` (it's cwd-scoped → "No conversation found").
+    const isRemoteSession = !!activeSession?.id
+      && (activeSession.id.startsWith('claude-session:') || activeSession.id.startsWith('codex-thread:'));
+    const workspaceChanged = !isRemoteSession && !!workspacePath && !!activeSession?.cwd && activeSession.cwd !== workspacePath;
     const transportChanged = !!activeSession?.transportMode && activeSession.transportMode !== selectedTransportMode;
     let sessionId = workspaceChanged || transportChanged ? null : activeSession?.id || null;
+    // Prefer the session's own cwd so a resumed history session runs in the
+    // directory it was recorded in, not whatever workspace is globally selected.
+    const commandCwd = activeSession?.cwd || workspacePath || undefined;
     if (!sessionId) {
       sessionId = `session-${Date.now()}`;
-      const workspaceName = workspacePath.split(/[\\/]/).filter(Boolean).pop();
+      const workspaceName = (commandCwd || workspacePath).split(/[\\/]/).filter(Boolean).pop();
       addSession({
         id: sessionId,
         name: `${backend === 'codex' ? 'Codex' : 'Claude Code'} ${selectedTransportMode === 'official-remote' ? 'Desktop' : 'CLI'}${workspaceName ? ` · ${workspaceName}` : ''}`,
         backend,
-        cwd: workspacePath || undefined,
+        cwd: commandCwd,
         transportMode: selectedTransportMode,
         messages: [],
         tokenUsage: { input: 0, output: 0, cost: 0 },
@@ -112,7 +120,7 @@ export function useAgentSession() {
         permissionMode,
         transportMode: selectedTransportMode,
         responseSpeed: backend === 'codex' ? codexResponseSpeed : undefined,
-        cwd: workspacePath || undefined,
+        cwd: commandCwd,
         apiConfig: apiConfig.baseUrl ? apiConfig : undefined,
       },
     });

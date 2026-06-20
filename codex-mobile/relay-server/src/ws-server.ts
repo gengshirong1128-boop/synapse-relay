@@ -225,7 +225,7 @@ export class RelayServer {
     }
 
     switch (msg.type) {
-      case 'command': this.handleCommand(client, msg); break;
+      case 'command': void this.handleCommand(client, msg); break;
       case 'file_list': this.handleFileList(client, msg); break;
       case 'file_content': this.handleFileContent(client, msg); break;
       case 'switch_backend': this.handleSwitchBackend(client, msg); break;
@@ -263,12 +263,18 @@ export class RelayServer {
     this.send(ws, { type: 'auth_result', payload: { success: false } });
   }
 
-  private handleCommand(client: AuthenticatedClient, msg: ClientMessage): void {
+  private async handleCommand(client: AuthenticatedClient, msg: ClientMessage): Promise<void> {
     client.lastActivity = Date.now();
     const sessionId = msg.sessionId || randomUUID();
     const backend = (msg.payload.backend || 'claude-code') as Backend;
-    const cwd = msg.payload.cwd || this.defaultWorkspacePath();
     const transportMode = this.normalizeTransportMode(backend, sessionId, msg.payload.transportMode);
+    // A resumed Claude history session is cwd-scoped: `claude --resume` only
+    // finds it when run from the directory it was recorded in. The phone may
+    // send a stale global workspace, so prefer the cwd stored in the session
+    // file. Only do this for a session we haven't started yet this run.
+    const cwd = !this.processManager.getSession(sessionId)
+      ? await this.resolveResumeCwd(sessionId, msg.payload.cwd)
+      : msg.payload.cwd || this.defaultWorkspacePath();
 
     if (!this.processManager.getSession(sessionId)) {
       this.processManager.startSession(sessionId, backend, cwd, transportMode);
@@ -318,6 +324,20 @@ export class RelayServer {
         payload: { message: 'Session busy, wait for current command to finish' },
       });
     }
+  }
+
+  // For a resumed history session, the directory it was recorded in wins over
+  // whatever cwd the phone sent — otherwise `claude --resume` can't find it.
+  private async resolveResumeCwd(sessionId: string, requestedCwd?: string): Promise<string> {
+    if (sessionId.startsWith('claude-session:')) {
+      const snapshot = await this.processManager.readClaudeSessionSnapshot(sessionId);
+      if (snapshot?.cwd) return snapshot.cwd;
+    }
+    if (sessionId.startsWith('codex-thread:')) {
+      const snapshot = await this.processManager.readCodexThreadSnapshot(sessionId);
+      if (snapshot?.cwd) return snapshot.cwd;
+    }
+    return requestedCwd || this.defaultWorkspacePath();
   }
 
   private handleFileList(client: AuthenticatedClient, msg: ClientMessage): void {
