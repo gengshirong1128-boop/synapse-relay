@@ -118,7 +118,7 @@ interface AppState {
   apiConfig: { baseUrl: string; apiKey: string; model: string };
   profiles: ApiProfile[];
   activeProfileId: string | null;
-  scannedPairing: { lanUrl: string; tunnelUrl: string; code: string } | null;
+  scannedPairing: { lanUrls: string[]; tunnelUrl: string; code: string } | null;
 
   setConnectionState: (state: ConnectionState) => void;
   setServerUrl: (url: string) => void;
@@ -144,7 +144,7 @@ interface AppState {
   setActiveBackend: (backend: Backend) => void;
   setProfiles: (profiles: ApiProfile[]) => void;
   setActiveProfile: (id: string) => void;
-  setScannedPairing: (pairing: { lanUrl: string; tunnelUrl: string; code: string } | null) => void;
+  setScannedPairing: (pairing: { lanUrls: string[]; tunnelUrl: string; code: string } | null) => void;
   addSession: (session: Session) => void;
   mergeRemoteSessions: (sessions: RemoteSessionInfo[]) => void;
   setActiveSession: (id: string) => void;

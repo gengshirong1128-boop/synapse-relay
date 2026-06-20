@@ -13,14 +13,20 @@ export default function ConnectScreen() {
   const colors = getTheme(activeBackend === 'codex' ? 'codex' : 'claude', theme);
   const [lanUrl, setLanUrl] = useState('');
   const [tunnelUrl, setTunnelUrl] = useState(serverUrl && /^wss/i.test(serverUrl) ? serverUrl : '');
+  // Extra LAN/VPN addresses from a scan beyond the one shown in the input
+  // (e.g. ZeroTier IP in addition to the WiFi IP). Kept so they're all tried.
+  const [extraLanUrls, setExtraLanUrls] = useState<string[]>([]);
   const [code, setCode] = useState('');
   const [connecting, setConnecting] = useState(false);
 
-  // When the scanner returns a {lanUrl, tunnelUrl, code} payload, prefill the
-  // form and clear it from the store so it doesn't re-apply on a later visit.
+  // When the scanner returns a {lanUrls, tunnelUrl, code} payload, prefill the
+  // form (first LAN url visible, the rest kept aside) and clear it from the
+  // store so it doesn't re-apply on a later visit.
   useEffect(() => {
     if (scannedPairing) {
-      if (scannedPairing.lanUrl) setLanUrl(scannedPairing.lanUrl);
+      const [first, ...rest] = scannedPairing.lanUrls || [];
+      if (first) setLanUrl(first);
+      setExtraLanUrls(rest);
       if (scannedPairing.tunnelUrl) setTunnelUrl(scannedPairing.tunnelUrl);
       if (scannedPairing.code) setCode(scannedPairing.code);
       setScannedPairing(null);
@@ -29,10 +35,12 @@ export default function ConnectScreen() {
 
   const handleConnect = async () => {
     // Validate whichever addresses were provided; at least one must be valid.
-    const checks = [lanUrl, tunnelUrl].filter(u => u.trim()).map(u => validateRelayUrl(u));
+    const typed = [lanUrl, tunnelUrl].filter(u => u.trim()).map(u => validateRelayUrl(u));
+    const extras = extraLanUrls.map(u => validateRelayUrl(u)).filter(c => c.ok);
+    const checks = [...typed, ...extras];
     const valid = checks.filter(c => c.ok).map(c => c.value);
     if (!valid.length) {
-      const firstErr = checks.find(c => !c.ok);
+      const firstErr = typed.find(c => !c.ok);
       Alert.alert('地址无效', firstErr?.reason || '请至少填写一个有效的服务器地址');
       return;
     }
@@ -40,11 +48,10 @@ export default function ConnectScreen() {
       Alert.alert('配对码无效', '请输入 6 位配对码');
       return;
     }
-    // LAN first, tunnel fallback.
-    const candidates = connectionCandidates({
-      lanUrl: checks.find(c => c.ok && /^ws:\/\//i.test(c.value))?.value,
-      tunnelUrl: checks.find(c => c.ok && /^wss:\/\//i.test(c.value))?.value,
-    });
+    // All direct LAN/VPN addresses first (typed + scanned extras), tunnel last.
+    const lanUrls = checks.filter(c => c.ok && /^ws:\/\//i.test(c.value)).map(c => c.value);
+    const tunnel = checks.find(c => c.ok && /^wss:\/\//i.test(c.value))?.value;
+    const candidates = connectionCandidates({ lanUrls, tunnelUrl: tunnel });
     const ordered = candidates.length ? candidates : valid;
     setConnecting(true);
     const ok = await pairAndSave(ordered, code.trim());
@@ -76,7 +83,7 @@ export default function ConnectScreen() {
         <View style={[styles.dividerLine, { backgroundColor: colors.inputBorder }]} />
       </View>
 
-      <Text style={[styles.label, { color: colors.textSecondary }]}>局域网地址（同 WiFi，优先，快）</Text>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>局域网 / ZeroTier 地址（直连，优先，快）</Text>
       <TextInput
         style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
         value={lanUrl}
@@ -86,6 +93,11 @@ export default function ConnectScreen() {
         autoCapitalize="none"
         autoCorrect={false}
       />
+      {extraLanUrls.length > 0 && (
+        <Text style={[styles.extraHint, { color: colors.textTertiary }]}>
+          已扫到 {extraLanUrls.length} 个额外直连地址（含 ZeroTier），连接时会一并尝试
+        </Text>
+      )}
 
       <Text style={[styles.label, { color: colors.textSecondary }]}>外网地址（出门/4G 兜底，可选）</Text>
       <TextInput
@@ -121,8 +133,9 @@ export default function ConnectScreen() {
         <Text style={[styles.helpTitle, { color: colors.text }]}>使用说明</Text>
         <Text style={[styles.helpText, { color: colors.textSecondary }]}>1. 在 Windows 上双击 relay-server/start.bat 启动中继服务</Text>
         <Text style={[styles.helpText, { color: colors.textSecondary }]}>2. 终端会显示 6 位配对码和连接地址</Text>
-        <Text style={[styles.helpText, { color: colors.textSecondary }]}>3. 同一 WiFi 下用局域网地址；不同网络用 Tunnel 地址</Text>
-        <Text style={[styles.helpText, { color: colors.textSecondary }]}>4. 扫码自动填入，或手动输入上面两项</Text>
+        <Text style={[styles.helpText, { color: colors.textSecondary }]}>3. 同 WiFi 自动走局域网直连（最快）；校园网/出门装 ZeroTier 后走虚拟局域网直连</Text>
+        <Text style={[styles.helpText, { color: colors.textSecondary }]}>4. 都不通时自动回退外网 Tunnel 地址</Text>
+        <Text style={[styles.helpText, { color: colors.textSecondary }]}>5. 扫码自动填入全部地址，或手动输入上面各项</Text>
       </View>
     </View>
   );
@@ -138,6 +151,7 @@ const styles = StyleSheet.create({
   dividerLine: { flex: 1, height: 1 },
   dividerText: { fontSize: 13, marginHorizontal: 12 },
   label: { fontSize: 14, marginBottom: 6 },
+  extraHint: { fontSize: 12, marginTop: -8, marginBottom: 16 },
   input: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, marginBottom: 16 },
   codeInput: { fontSize: 24, letterSpacing: 8, textAlign: 'center' },
   connectBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
