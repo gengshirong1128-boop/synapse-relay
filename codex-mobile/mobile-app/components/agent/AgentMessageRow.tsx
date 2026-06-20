@@ -103,9 +103,30 @@ function UserRow({ msg, colors }: Pick<Props, 'msg' | 'colors'>) {
 }
 
 function AgentRow({ msg, backend, colors, copy }: Props) {
+  // react-native-markdown-display colors text BLACK by default for any element
+  // we don't override — invisible on dark themes. So every text-bearing element
+  // must get an explicit color from the theme.
   const mdStyles = {
     body: { color: colors.assistantText, fontSize: 15, lineHeight: 23 },
-    strong: { fontWeight: '700' as const },
+    paragraph: { color: colors.assistantText, marginTop: 0, marginBottom: 10 },
+    text: { color: colors.assistantText },
+    strong: { color: colors.assistantText, fontWeight: '700' as const },
+    em: { color: colors.assistantText, fontStyle: 'italic' as const },
+    s: { color: colors.assistantText },
+    link: { color: colors.accent, textDecorationLine: 'underline' as const },
+    blockquote: {
+      backgroundColor: colors.thinkingBg,
+      borderColor: colors.accent,
+      borderLeftWidth: 3,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      marginVertical: 4,
+    },
+    bullet_list: { marginVertical: 4 },
+    ordered_list: { marginVertical: 4 },
+    list_item: { color: colors.assistantText, marginVertical: 2 },
+    bullet_list_icon: { color: colors.accent },
+    ordered_list_icon: { color: colors.accent },
     code_inline: {
       backgroundColor: colors.codeBg,
       color: colors.codeText,
@@ -115,16 +136,30 @@ function AgentRow({ msg, backend, colors, copy }: Props) {
     },
     fence: {
       backgroundColor: colors.codeBg,
+      color: colors.codeText,
       borderColor: colors.border,
       borderWidth: StyleSheet.hairlineWidth,
       borderRadius: 6,
       padding: 10,
     },
-    code_block: { color: colors.codeText, fontSize: 12, fontFamily: 'monospace' },
-    bullet_list_icon: { color: colors.accent },
-    heading1: { color: colors.text, fontSize: 18, fontWeight: '700' as const },
-    heading2: { color: colors.text, fontSize: 16, fontWeight: '700' as const },
-    heading3: { color: colors.text, fontSize: 15, fontWeight: '700' as const },
+    code_block: {
+      backgroundColor: colors.codeBg,
+      color: colors.codeText,
+      fontSize: 12,
+      fontFamily: 'monospace',
+    },
+    hr: { backgroundColor: colors.border, height: StyleSheet.hairlineWidth, marginVertical: 10 },
+    table: { borderColor: colors.border, borderWidth: StyleSheet.hairlineWidth, borderRadius: 4, marginVertical: 6 },
+    thead: { backgroundColor: colors.thinkingBg },
+    th: { color: colors.assistantText, padding: 6, fontWeight: '700' as const },
+    tr: { borderColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth },
+    td: { color: colors.assistantText, padding: 6 },
+    heading1: { color: colors.text, fontSize: 18, fontWeight: '700' as const, marginTop: 6, marginBottom: 4 },
+    heading2: { color: colors.text, fontSize: 16, fontWeight: '700' as const, marginTop: 6, marginBottom: 4 },
+    heading3: { color: colors.text, fontSize: 15, fontWeight: '700' as const, marginTop: 4, marginBottom: 2 },
+    heading4: { color: colors.text, fontSize: 15, fontWeight: '700' as const },
+    heading5: { color: colors.text, fontSize: 14, fontWeight: '700' as const },
+    heading6: { color: colors.text, fontSize: 14, fontWeight: '700' as const },
   };
 
   return (
