@@ -1,28 +1,59 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
 <meta charset="UTF-8">
-<title>Scan to Open in Expo Go</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CodexMobile - 扫码打开</title>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
-body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#1a1a2e;color:#fff;font-family:system-ui}
-h1{font-size:24px;margin-bottom:8px}
-p{color:#aaa;margin-bottom:24px}
-canvas{border-radius:12px;background:#fff;padding:16px}
-a{display:block;margin-top:16px;color:#fff;background:#4f46e5;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600}
-code{display:block;margin-top:12px;background:#2d2d44;padding:8px 16px;border-radius:6px;font-size:14px}
+body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#1a1a2e;color:#fff;font-family:system-ui,-apple-system,sans-serif}
+h1{font-size:24px;margin-bottom:4px}
+p{color:#aaa;margin:4px 0 20px;font-size:14px}
+input{width:min(90vw,420px);padding:12px 14px;border-radius:8px;border:1px solid #3d3d5c;background:#2d2d44;color:#fff;font-size:15px;box-sizing:border-box}
+canvas{border-radius:12px;background:#fff;padding:16px;margin-top:20px}
+a{display:none;margin-top:16px;color:#fff;background:#4f46e5;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600}
+.hint{color:#777;font-size:12px;margin-top:18px;max-width:min(90vw,420px);text-align:center;line-height:1.6}
+.err{color:#ff6b6b;font-size:13px;margin-top:10px;min-height:18px}
 </style>
 </head>
 <body>
 <h1>CodexMobile</h1>
-<p>用手机扫码直接打开 Expo Go</p>
+<p>粘贴 Expo 的 exp:// 地址，手机扫码打开 Expo Go</p>
+<input id="url" placeholder="exp://xxxxx-anonymous-8081.exp.direct" autocomplete="off" spellcheck="false">
+<div class="err" id="err"></div>
 <canvas id="qr"></canvas>
-<a id="openLink" href="exp://bonpq18-anonymous-8083.exp.direct:443">打开 Expo Go</a>
-<code>exp://bonpq18-anonymous-8083.exp.direct:443</code>
+<a id="openLink">在本机打开 Expo Go</a>
+<div class="hint">
+  地址从哪来：电脑跑 <code>npm run start:tunnel</code> 后，浏览器打开
+  <code>http://localhost:8081/</code> 看 <code>hostUri</code>，拼成 <code>exp://&lt;hostUri&gt;</code>。
+  地址每次重启都会变。
+</div>
 <script>
-const expoUrl = 'exp://bonpq18-anonymous-8083.exp.direct:443';
-document.getElementById('openLink').href = expoUrl;
-QRCode.toCanvas(document.getElementById('qr'), expoUrl, {width:280,margin:2});
+const input = document.getElementById('url');
+const canvas = document.getElementById('qr');
+const link = document.getElementById('openLink');
+const err = document.getElementById('err');
+
+function render(raw) {
+  const url = (raw || '').trim();
+  err.textContent = '';
+  if (!url) { canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height); link.style.display='none'; return; }
+  if (!/^exp:\/\/|^https?:\/\//.test(url)) {
+    err.textContent = '地址应以 exp:// 或 https:// 开头';
+    link.style.display = 'none';
+    return;
+  }
+  link.href = url;
+  link.style.display = 'inline-block';
+  QRCode.toCanvas(canvas, url, { width: 280, margin: 2 }, (e) => {
+    if (e) err.textContent = '二维码生成失败：' + e.message;
+  });
+}
+
+input.addEventListener('input', () => render(input.value));
+// 支持用 ?url= 预填（电脑端脚本可直接拼好链接）
+const pre = new URLSearchParams(location.search).get('url');
+if (pre) { input.value = pre; render(pre); }
 </script>
 </body>
 </html>
