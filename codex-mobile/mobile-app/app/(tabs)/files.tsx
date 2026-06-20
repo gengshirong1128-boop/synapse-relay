@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, RefreshControl, Pressable, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, Pressable, TextInput, StyleSheet } from 'react-native';
 import { useAppStore } from '../../store';
 import { relayClient } from '../../services/websocket';
 import { FileTree } from '../../components/FileTree';
@@ -13,6 +13,7 @@ export default function FilesScreen() {
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [truncated, setTruncated] = useState(false);
+  const [query, setQuery] = useState('');
 
   React.useEffect(() => {
     if (connectionState !== 'connected') return;
@@ -49,6 +50,7 @@ export default function FilesScreen() {
       setCurrentPath(currentPath === '.' ? dir : `${currentPath}/${dir}`);
     }
     setFileContent(null);
+    setQuery('');
   };
 
   const handleFilePress = (name: string) => {
@@ -57,6 +59,8 @@ export default function FilesScreen() {
   };
 
   const breadcrumbs = currentPath === '.' ? ['root'] : ['root', ...currentPath.split('/')];
+  const q = query.trim().toLowerCase();
+  const visibleFiles = q ? files.filter(f => f.name.toLowerCase().includes(q)) : files;
 
   if (connectionState !== 'connected') {
     return (
@@ -97,16 +101,35 @@ export default function FilesScreen() {
           </React.Fragment>
         ))}
       </View>
+      <View style={[styles.searchBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <TextInput
+          style={[styles.searchInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
+          value={query}
+          onChangeText={setQuery}
+          placeholder="搜索当前文件夹…"
+          placeholderTextColor={colors.placeholder}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {!!query && (
+          <Pressable onPress={() => setQuery('')} style={styles.clearBtn}>
+            <Text style={[styles.clearText, { color: colors.textTertiary }]}>✕</Text>
+          </Pressable>
+        )}
+      </View>
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
         <FileTree
-          files={files}
+          files={visibleFiles}
           currentPath={currentPath}
           colors={colors}
           onNavigate={handleNavigate}
           onFilePress={handleFilePress}
         />
+        {q && visibleFiles.length === 0 && (
+          <Text style={[styles.noResult, { color: colors.textTertiary }]}>没有匹配「{query}」的文件</Text>
+        )}
       </ScrollView>
     </View>
   );
@@ -119,6 +142,11 @@ const styles = StyleSheet.create({
   breadcrumb: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, flexWrap: 'wrap' },
   breadSep: { fontSize: 13, marginHorizontal: 4 },
   breadSeg: { fontSize: 13, fontWeight: '500' },
+  searchBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, gap: 8 },
+  searchInput: { flex: 1, borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14 },
+  clearBtn: { paddingHorizontal: 6, paddingVertical: 4 },
+  clearText: { fontSize: 14, fontWeight: '700' },
+  noResult: { textAlign: 'center', fontSize: 13, paddingVertical: 24 },
   fileHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1 },
   backBtn: { fontSize: 15, fontWeight: '500' },
   truncTag: { fontSize: 12 },
