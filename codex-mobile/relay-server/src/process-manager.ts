@@ -155,7 +155,8 @@ export class ProcessManager extends EventEmitter {
     let finished = false;
 
     const finishProcess = (code: number, errorMessage?: string) => {
-      if (finished || session.process !== proc) return;
+      // Guard against a stale process whose session was already killed/replaced.
+      if (finished || session.process !== proc || this.sessions.get(sessionId) !== session) return;
       finished = true;
       clearTimeout(timeout);
       session.state = code === 0 ? 'idle' : 'crashed';
@@ -167,17 +168,28 @@ export class ProcessManager extends EventEmitter {
       this.emit('exit', sessionId, code);
     };
 
-    const timeout = setTimeout(() => {
-      if (session.process !== proc || session.state !== 'running') return;
-      finishProcess(1, 'Agent command timed out after 60 seconds.');
-      try { proc.kill('SIGTERM'); } catch {}
-      setTimeout(() => {
-        try { proc.kill('SIGKILL'); } catch {}
-      }, 3000);
-    }, 60000);
+    // Idle timeout, not an absolute deadline: a real AI agent task often runs
+    // for minutes. We only abort when there's been NO output/activity for the
+    // idle window, and reset the timer on every stdout/stderr chunk. Configurable
+    // via CLI_IDLE_TIMEOUT_MS (default 5 min).
+    const idleMs = Number(process.env.CLI_IDLE_TIMEOUT_MS) || 5 * 60 * 1000;
+    let timeout: ReturnType<typeof setTimeout>;
+    const armIdleTimeout = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        if (session.process !== proc || session.state !== 'running') return;
+        finishProcess(1, `Agent command timed out after ${Math.round(idleMs / 1000)}s with no output.`);
+        try { proc.kill('SIGTERM'); } catch {}
+        setTimeout(() => {
+          try { proc.kill('SIGKILL'); } catch {}
+        }, 3000);
+      }, idleMs);
+    };
+    armIdleTimeout();
 
     proc.stdout?.on('data', (data: Buffer) => {
       if (finished || session.process !== proc) return;
+      armIdleTimeout(); // activity → reset idle timer
       const chunk = data.toString();
       session.outputBuffer += chunk;
       lineBuffer += chunk;
@@ -199,6 +211,7 @@ export class ProcessManager extends EventEmitter {
 
     proc.stderr?.on('data', (data: Buffer) => {
       if (finished || session.process !== proc) return;
+      armIdleTimeout(); // stderr is activity too → reset idle timer
       stderrBuffer += data.toString();
       if (stderrBuffer.length > 12000) {
         stderrBuffer = stderrBuffer.slice(-12000);
@@ -447,6 +460,11 @@ export class ProcessManager extends EventEmitter {
     const session = this.sessions.get(sessionId);
     if (!session) return;
     this.stopRunningSession(session);
+    // Detach the process handle so a late exit from the SIGTERM'd process can't
+    // emit a spurious 'crashed' status after the user explicitly stopped it
+    // (finishProcess bails when session.process !== proc).
+    session.process = null;
+    session.state = 'idle';
     this.sessions.delete(sessionId);
   }
 

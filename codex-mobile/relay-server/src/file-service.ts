@@ -1,4 +1,4 @@
-import { resolve, relative, sep } from 'path';
+import { resolve, relative, sep, isAbsolute, parse } from 'path';
 import { statSync, readdirSync, readFileSync } from 'fs';
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
@@ -16,9 +16,18 @@ export class FileService {
   }
 
   private resolveSafe(requestedPath: string): string | null {
+    // Reject absolute inputs outright: resolve(base, "C:\\x") returns "C:\\x",
+    // and on Windows path.relative across drives doesn't start with ".." — so
+    // the old `relative().startsWith('..')` check let absolute/other-drive
+    // paths escape the workspace. Only allow relative paths under basePath.
+    if (isAbsolute(requestedPath)) return null;
     const resolved = resolve(this.basePath, requestedPath);
-    const rel = relative(this.basePath, resolved);
-    if (rel.startsWith('..') || rel.startsWith(sep + sep)) return null;
+    // Must be on the same drive root as the workspace (Windows multi-drive).
+    if (parse(resolved).root.toLowerCase() !== parse(this.basePath).root.toLowerCase()) return null;
+    // Strict containment: resolved must equal base or be a child of base + sep.
+    const base = this.basePath;
+    const inside = resolved === base || resolved.startsWith(base.endsWith(sep) ? base : base + sep);
+    if (!inside) return null;
     for (const pattern of BLOCKED_PATTERNS) {
       if (pattern.test(resolved)) return null;
     }
