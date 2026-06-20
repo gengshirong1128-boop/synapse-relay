@@ -33,7 +33,9 @@ export default function ConnectScreen() {
     const ok = await pairAndSave(url.trim(), code.trim());
     setConnecting(false);
     if (ok) {
-      router.back();
+      Alert.alert('连接成功', '已连接到中继服务', [
+        { text: '开始使用', onPress: () => router.back() },
+      ]);
     } else {
       Alert.alert('认证失败', '配对码错误或已过期');
     }
@@ -89,10 +91,10 @@ export default function ConnectScreen() {
 
       <View style={[styles.helpSection, { backgroundColor: colors.surface }]}>
         <Text style={[styles.helpTitle, { color: colors.text }]}>使用说明</Text>
-        <Text style={[styles.helpText, { color: colors.textSecondary }]}>1. 在 Windows 上运行 relay-server（npm run dev）</Text>
-        <Text style={[styles.helpText, { color: colors.textSecondary }]}>2. 终端会显示 6 位配对码和局域网地址</Text>
-        <Text style={[styles.helpText, { color: colors.textSecondary }]}>3. 确保手机和电脑在同一 WiFi 下</Text>
-        <Text style={[styles.helpText, { color: colors.textSecondary }]}>4. 若需外网访问，启用 Cloudflare Tunnel</Text>
+        <Text style={[styles.helpText, { color: colors.textSecondary }]}>1. 在 Windows 上双击 relay-server/start.bat 启动中继服务</Text>
+        <Text style={[styles.helpText, { color: colors.textSecondary }]}>2. 终端会显示 6 位配对码和连接地址</Text>
+        <Text style={[styles.helpText, { color: colors.textSecondary }]}>3. 同一 WiFi 下用局域网地址；不同网络用 Tunnel 地址</Text>
+        <Text style={[styles.helpText, { color: colors.textSecondary }]}>4. 扫码自动填入，或手动输入上面两项</Text>
       </View>
     </View>
   );
