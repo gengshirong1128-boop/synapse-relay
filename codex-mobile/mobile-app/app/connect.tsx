@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, StyleSheet, Alert } from 'react-nativ
 import { useRouter } from 'expo-router';
 import { useAppStore } from '../store';
 import { pairAndSave } from '../services/auth';
+import { validateRelayUrl } from '../services/relayUrl';
 import { getTheme } from '../theme/colors';
 
 export default function ConnectScreen() {
@@ -24,13 +25,17 @@ export default function ConnectScreen() {
   }, [scannedPairing, setScannedPairing]);
 
   const handleConnect = async () => {
-    if (!url.trim()) return;
+    const urlCheck = validateRelayUrl(url);
+    if (!urlCheck.ok) {
+      Alert.alert('地址无效', urlCheck.reason || '请检查服务器地址');
+      return;
+    }
     if (code.trim().length !== 6) {
       Alert.alert('配对码无效', '请输入 6 位配对码');
       return;
     }
     setConnecting(true);
-    const ok = await pairAndSave(url.trim(), code.trim());
+    const ok = await pairAndSave(urlCheck.value, code.trim());
     setConnecting(false);
     if (ok) {
       Alert.alert('连接成功', '已连接到中继服务', [
