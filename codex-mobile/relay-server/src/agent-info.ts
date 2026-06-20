@@ -63,6 +63,13 @@ export async function readAgentInfo(options: ReadAgentInfoOptions): Promise<Agen
   };
 }
 
+// Claude Code CLI accepts model aliases (not just full names) via --model.
+// There is no non-interactive command to enumerate models (/model is a TUI
+// command), so we offer the well-known aliases plus whatever the user has
+// configured. This makes the phone show real, selectable options instead of a
+// single config value.
+const KNOWN_CLAUDE_MODELS = ['sonnet', 'opus', 'haiku'];
+
 async function readClaudeConfig(): Promise<{ model: string; models: string[] }> {
   try {
     const settings = JSON.parse(await readFile(join(homedir(), '.claude', 'settings.json'), 'utf-8')) as {
@@ -70,9 +77,9 @@ async function readClaudeConfig(): Promise<{ model: string; models: string[] }> 
       env?: { ANTHROPIC_MODEL?: string };
     };
     const model = cleanModelName(settings.model || settings.env?.ANTHROPIC_MODEL || '');
-    return { model, models: uniqueStrings([model]) };
+    return { model, models: uniqueStrings([model, ...KNOWN_CLAUDE_MODELS]) };
   } catch {
-    return { model: '', models: [] };
+    return { model: '', models: uniqueStrings(KNOWN_CLAUDE_MODELS) };
   }
 }
 
