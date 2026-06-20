@@ -52,14 +52,14 @@ export function AgentHeader({
       </View>
       <View style={styles.right}>
         {onNewChat && (
-          <Pressable onPress={onNewChat} style={[styles.newChatBtn, { borderColor: colors.border }]} hitSlop={8}>
+          <Pressable onPress={onNewChat} style={[styles.newChatBtn, { borderColor: colors.border }]} hitSlop={8} accessibilityRole="button" accessibilityLabel="新建对话">
             <Text style={[styles.newChatText, { color: colors.accent }]}>＋ 新对话</Text>
           </Pressable>
         )}
         <Text style={[styles.tokens, { color: colors.textTertiary }]}>
-          {formatTokens(tokenUsage.input)}/{formatTokens(tokenUsage.output)}
+          Token {formatTokens(tokenUsage.input)}/{formatTokens(tokenUsage.output)}
         </Text>
-        <Text style={[styles.cost, { color: colors.text }]}>${tokenUsage.cost.toFixed(4)}</Text>
+        <Text style={[styles.cost, { color: colors.text }]}>费用 ${tokenUsage.cost.toFixed(4)}</Text>
       </View>
     </View>
   );

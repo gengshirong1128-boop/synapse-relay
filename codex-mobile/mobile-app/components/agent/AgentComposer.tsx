@@ -25,7 +25,7 @@ export function AgentComposer({ value, placeholder, colors, isStreaming, disable
         </Text>
       )}
       <View style={styles.composer}>
-        <Pressable style={styles.attachBtn} onPress={onAttach} disabled={!!disabledReason}>
+        <Pressable style={styles.attachBtn} onPress={onAttach} disabled={!!disabledReason} accessibilityRole="button" accessibilityLabel="添加图片附件">
           <Text style={[styles.attachIcon, { color: disabledReason ? colors.textTertiary : colors.textSecondary }]}>+</Text>
         </Pressable>
         <TextInput
@@ -40,7 +40,7 @@ export function AgentComposer({ value, placeholder, colors, isStreaming, disable
           onSubmitEditing={canSend ? onSend : undefined}
         />
         {isStreaming ? (
-          <Pressable style={[styles.stopBtn]} onPress={onStop}>
+          <Pressable style={[styles.stopBtn]} onPress={onStop} accessibilityRole="button" accessibilityLabel="停止运行">
             <Text style={styles.stopIcon}>■</Text>
           </Pressable>
         ) : (
@@ -48,6 +48,9 @@ export function AgentComposer({ value, placeholder, colors, isStreaming, disable
             style={[styles.sendBtn, { backgroundColor: canSend ? colors.accent : colors.surfaceAlt }]}
             onPress={onSend}
             disabled={!canSend}
+            accessibilityRole="button"
+            accessibilityLabel="发送消息"
+            accessibilityState={{ disabled: !canSend }}
           >
             <Text style={[styles.sendIcon, { color: canSend ? colors.bg : colors.textTertiary }]}>↑</Text>
           </Pressable>

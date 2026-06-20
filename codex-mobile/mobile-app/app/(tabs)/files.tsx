@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, RefreshControl, Pressable, TextInput, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useAppStore } from '../../store';
 import { relayClient } from '../../services/websocket';
 import { FileTree } from '../../components/FileTree';
@@ -9,6 +10,7 @@ import { getTheme } from '../../theme/colors';
 export default function FilesScreen() {
   const { connectionState, activeBackend, theme, workspacePath } = useAppStore();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const colors = getTheme(activeBackend === 'codex' ? 'codex' : 'claude', theme);
   const [files, setFiles] = useState<{ name: string; type: 'file' | 'dir'; size: number }[]>([]);
   const [currentPath, setCurrentPath] = useState('.');
@@ -67,7 +69,10 @@ export default function FilesScreen() {
   if (connectionState !== 'connected') {
     return (
       <View style={[styles.empty, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
-        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>请先连接服务器</Text>
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>请先连接电脑上的中继服务</Text>
+        <Pressable style={[styles.connectBtn, { backgroundColor: colors.accent }]} onPress={() => router.push('/connect')} accessibilityRole="button" accessibilityLabel="去连接">
+          <Text style={[styles.connectBtnText, { color: colors.bg }]}>去连接</Text>
+        </Pressable>
       </View>
     );
   }
@@ -141,6 +146,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { fontSize: 16 },
+  connectBtn: { marginTop: 16, borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12 },
+  connectBtnText: { fontSize: 15, fontWeight: '700' },
   breadcrumb: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, flexWrap: 'wrap' },
   breadSep: { fontSize: 13, marginHorizontal: 4 },
   breadSeg: { fontSize: 13, fontWeight: '500' },

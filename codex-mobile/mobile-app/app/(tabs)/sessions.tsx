@@ -54,7 +54,7 @@ export default function SessionsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
-      <Pressable onPress={newChat} style={[styles.newChatBar, { backgroundColor: colors.accent }]}>
+      <Pressable onPress={newChat} style={[styles.newChatBar, { backgroundColor: colors.accent }]} accessibilityRole="button" accessibilityLabel="新建对话">
         <Text style={[styles.newChatText, { color: colors.bg }]}>＋ 新建对话</Text>
       </Pressable>
       {sessions.length === 0 ? (

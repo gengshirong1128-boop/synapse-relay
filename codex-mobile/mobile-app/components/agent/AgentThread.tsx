@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, View } from 'react-native';
 import { Backend } from '../../services/websocket';
 import { ChatMessage } from '../../store';
 import { ThemeColors } from '../../theme/colors';
@@ -15,6 +15,16 @@ type Props = {
 
 export function AgentThread({ backend, colors, copy, messages }: Props) {
   const listRef = useRef<FlatList>(null);
+  // Only auto-scroll to the bottom when the user is already near the bottom.
+  // Otherwise scrolling up to read history during a long streaming reply would
+  // keep yanking them back down on every content-size change.
+  const atBottomRef = useRef(true);
+
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+    atBottomRef.current = distanceFromBottom < 80;
+  };
 
   return (
     <FlatList
@@ -26,7 +36,11 @@ export function AgentThread({ backend, colors, copy, messages }: Props) {
         <AgentMessageRow msg={item} backend={backend} colors={colors} copy={copy} />
       )}
       contentContainerStyle={messages.length ? styles.threadList : styles.emptyList}
-      onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+      onScroll={onScroll}
+      scrollEventThrottle={100}
+      onContentSizeChange={() => {
+        if (atBottomRef.current) listRef.current?.scrollToEnd({ animated: false });
+      }}
       windowSize={10}
       maxToRenderPerBatch={8}
       removeClippedSubviews

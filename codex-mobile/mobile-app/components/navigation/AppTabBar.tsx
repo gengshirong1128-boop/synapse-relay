@@ -29,6 +29,9 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
             key={tab.name}
             onPress={() => openTab(tab.name, route?.key, focused, navigation)}
             style={styles.item}
+            accessibilityRole="tab"
+            accessibilityLabel={tab.label}
+            accessibilityState={{ selected: focused }}
           >
             {options?.tabBarIcon
               ? options.tabBarIcon({ focused, color, size: 20 })
