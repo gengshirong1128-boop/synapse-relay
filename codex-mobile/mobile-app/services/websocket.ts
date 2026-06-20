@@ -89,25 +89,28 @@ export class RelayClient {
   private doConnect(): void {
     this.setState('connecting');
     this.url = this.candidates[this.candidateIndex] || this.candidates[0] || this.url;
+    let ws: WebSocket;
     try {
-      this.ws = new WebSocket(this.url);
+      ws = new WebSocket(this.url);
     } catch {
       this.advanceOrReconnect();
       return;
     }
+    this.ws = ws;
 
     // If there's another candidate to try (e.g. LAN before tunnel), give this
     // one a short probe window; on timeout, close it and try the next.
     const hasFallback = this.candidateIndex < this.candidates.length - 1;
     if (hasFallback) {
       this.probeTimer = setTimeout(() => {
-        if (this._state !== 'connected') {
-          try { this.ws?.close(); } catch { /* noop */ }
+        if (this.ws === ws && this._state !== 'connected') {
+          try { ws.close(); } catch { /* noop */ }
         }
       }, RelayClient.LAN_PROBE_MS);
     }
 
-    this.ws.onopen = () => {
+    ws.onopen = () => {
+      if (this.ws !== ws) return; // stale socket from a previous candidate
       this.clearProbe();
       this.setState('connected');
       this.reconnectAttempts = 0;
@@ -120,7 +123,8 @@ export class RelayClient {
       this.flushQueue();
     };
 
-    this.ws.onmessage = (event) => {
+    ws.onmessage = (event) => {
+      if (this.ws !== ws) return;
       try {
         const raw = JSON.parse(event.data as string);
         if (raw.type === 'pong') {
@@ -148,7 +152,10 @@ export class RelayClient {
       } catch { /* ignore malformed */ }
     };
 
-    this.ws.onclose = () => {
+    ws.onclose = () => {
+      // Ignore close events from a socket we've already moved on from, so a late
+      // close on the old LAN socket can't tear down a freshly-connected tunnel.
+      if (this.ws !== ws) return;
       this.clearProbe();
       this.stopHeartbeat();
       // Not connected on this candidate and another remains in this round → try
@@ -167,8 +174,9 @@ export class RelayClient {
       this.scheduleReconnect();
     };
 
-    this.ws.onerror = () => {
-      this.ws?.close();
+    ws.onerror = () => {
+      if (this.ws !== ws) return;
+      ws.close();
     };
   }
 
