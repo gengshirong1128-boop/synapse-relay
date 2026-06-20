@@ -11,7 +11,7 @@ type SessionSection = {
 };
 
 export default function SessionsScreen() {
-  const { sessions, activeSessionId, activeBackend, theme, setActiveSession, updateSessionState } = useAppStore();
+  const { sessions, activeSessionId, activeBackend, theme, setActiveSession, updateSessionState, startNewSession } = useAppStore();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const colors = getTheme(activeBackend === 'codex' ? 'codex' : 'claude', theme);
@@ -20,6 +20,11 @@ export default function SessionsScreen() {
     setRefreshing(true);
     relayClient.send({ type: 'session_list', payload: {} });
     setTimeout(() => setRefreshing(false), 800);
+  };
+
+  const newChat = () => {
+    startNewSession();
+    router.push('/');
   };
 
   useEffect(() => {
@@ -47,6 +52,9 @@ export default function SessionsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      <Pressable onPress={newChat} style={[styles.newChatBar, { backgroundColor: colors.accent }]}>
+        <Text style={[styles.newChatText, { color: colors.bg }]}>＋ 新建对话</Text>
+      </Pressable>
       {sessions.length === 0 ? (
         <View style={styles.empty}>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>暂无会话</Text>
@@ -141,6 +149,8 @@ function formatRelativeTime(value?: number | null): string {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  newChatBar: { marginHorizontal: 12, marginTop: 12, marginBottom: 4, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
+  newChatText: { fontSize: 15, fontWeight: '700' },
   list: { paddingBottom: 16 },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { fontSize: 16 },

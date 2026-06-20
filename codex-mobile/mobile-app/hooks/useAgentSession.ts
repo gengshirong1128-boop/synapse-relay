@@ -10,6 +10,7 @@ export function useAgentSession() {
     sessions,
     activeSessionId,
     activeBackend,
+    composingNew,
     connectionState,
     theme,
     claudeModel,
@@ -27,19 +28,24 @@ export function useAgentSession() {
     addSession,
     updateSessionState,
     resolveApprovalRequest,
+    startNewSession,
   } = useAppStore();
 
   const backend = activeBackend;
   const model = backend === 'codex' ? codexModel : claudeModel;
   const selectedTransportMode = backend === 'codex' ? codexTransportMode : claudeTransportMode;
-  const activeSession = sessions.find(s =>
+  // When composing a brand-new chat, show a blank thread: match the exact active
+  // id only, and do NOT fall back to the latest session (which would re-show an
+  // old conversation the moment the user taps "new chat").
+  const exactSession = sessions.find(s =>
     s.id === activeSessionId
     && s.backend === activeBackend
     && (!s.transportMode || s.transportMode === selectedTransportMode)
-  )
-    || sessions
+  );
+  const activeSession = exactSession
+    || (composingNew ? null : sessions
       .filter(s => s.backend === activeBackend && (!s.transportMode || s.transportMode === selectedTransportMode))
-      .sort((a, b) => b.lastActivity - a.lastActivity)[0]
+      .sort((a, b) => b.lastActivity - a.lastActivity)[0])
     || null;
   const colors = getTheme(getBackendBrand(backend), theme);
   const copy = AGENT_COPY[backend];
@@ -167,5 +173,6 @@ export function useAgentSession() {
     connectionState,
     sendBlockedReason,
     respondToApproval,
+    startNewSession,
   };
 }

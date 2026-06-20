@@ -62,6 +62,7 @@ export default function ChatScreen() {
         workspacePath={agent.workspacePath}
         isRunning={agent.isRunning}
         onModelPress={() => router.push('/settings')}
+        onNewChat={agent.startNewSession}
       />
       <AgentThread
         backend={agent.backend}

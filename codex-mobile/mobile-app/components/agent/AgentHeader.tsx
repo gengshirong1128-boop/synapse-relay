@@ -15,6 +15,7 @@ type Props = {
   workspacePath?: string;
   isRunning?: boolean;
   onModelPress?: () => void;
+  onNewChat?: () => void;
 };
 
 export function AgentHeader({
@@ -26,6 +27,7 @@ export function AgentHeader({
   workspacePath,
   isRunning,
   onModelPress,
+  onNewChat,
 }: Props) {
   const shortModel = model ? model.replace('claude-', '').replace('-latest', '') : 'default';
   const workspaceName = workspacePath?.split(/[\\/]/).filter(Boolean).pop() || '未选择工作区';
@@ -49,6 +51,11 @@ export function AgentHeader({
         </View>
       </View>
       <View style={styles.right}>
+        {onNewChat && (
+          <Pressable onPress={onNewChat} style={[styles.newChatBtn, { borderColor: colors.border }]} hitSlop={8}>
+            <Text style={[styles.newChatText, { color: colors.accent }]}>＋ 新对话</Text>
+          </Pressable>
+        )}
         <Text style={[styles.tokens, { color: colors.textTertiary }]}>
           {formatTokens(tokenUsage.input)}/{formatTokens(tokenUsage.output)}
         </Text>
@@ -70,6 +77,8 @@ const styles = StyleSheet.create({
   mode: { fontSize: 12, fontWeight: '700' },
   workspace: { fontSize: 12, flex: 1 },
   right: { alignItems: 'flex-end' },
+  newChatBtn: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 4 },
+  newChatText: { fontSize: 12, fontWeight: '700' },
   tokens: { fontSize: 11 },
   cost: { fontSize: 13, fontWeight: '800', marginTop: 2 },
 });
