@@ -94,6 +94,9 @@ interface AppState {
   connectionState: ConnectionState;
   sessions: Session[];
   activeSessionId: string | null;
+  // True when the user tapped "new chat": show a blank thread (suppress the
+  // fallback-to-latest in useAgentSession) until they send the first message.
+  composingNew: boolean;
   activeBackend: Backend;
   theme: 'light' | 'dark';
   serverUrl: string;
@@ -115,7 +118,7 @@ interface AppState {
   apiConfig: { baseUrl: string; apiKey: string; model: string };
   profiles: ApiProfile[];
   activeProfileId: string | null;
-  scannedPairing: { url: string; code: string } | null;
+  scannedPairing: { lanUrl: string; tunnelUrl: string; code: string } | null;
 
   setConnectionState: (state: ConnectionState) => void;
   setServerUrl: (url: string) => void;
@@ -141,10 +144,11 @@ interface AppState {
   setActiveBackend: (backend: Backend) => void;
   setProfiles: (profiles: ApiProfile[]) => void;
   setActiveProfile: (id: string) => void;
-  setScannedPairing: (pairing: { url: string; code: string } | null) => void;
+  setScannedPairing: (pairing: { lanUrl: string; tunnelUrl: string; code: string } | null) => void;
   addSession: (session: Session) => void;
   mergeRemoteSessions: (sessions: RemoteSessionInfo[]) => void;
   setActiveSession: (id: string) => void;
+  startNewSession: () => void;
   setSessionMessages: (sessionId: string, messages: ChatMessage[]) => void;
   appendMessage: (sessionId: string, msg: ChatMessage) => void;
   updateStreamingMessage: (sessionId: string, text: string) => void;
@@ -159,6 +163,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   connectionState: 'disconnected',
   sessions: [],
   activeSessionId: null,
+  composingNew: false,
   activeBackend: 'claude-code',
   theme: 'dark',
   serverUrl: '',
@@ -249,6 +254,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     sessions: [...s.sessions, session],
     activeSessionId: session.id,
     activeBackend: session.backend,
+    composingNew: false,
   })),
 
   mergeRemoteSessions: (remoteSessions) => set((s) => {
@@ -297,15 +303,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     }
 
-    const activeSessionId = s.activeSessionId
-      || [...merged].sort((a, b) => b.lastActivity - a.lastActivity)[0]?.id
-      || null;
-    const activeSession = merged.find(session => session.id === activeSessionId);
+    // Pick a default active session ONLY within the user's currently selected
+    // backend+transportMode. Never switch activeBackend here: the user picks the
+    // backend in settings, and a refresh of the remote session list (which
+    // includes the other backend's history) must not yank them to claude-code
+    // just because the globally-newest session happens to be a Claude one.
+    const mode = s.activeBackend === 'codex' ? s.codexTransportMode : s.claudeTransportMode;
+    const inScope = [...merged]
+      .filter(session => session.backend === s.activeBackend && (!session.transportMode || session.transportMode === mode))
+      .sort((a, b) => b.lastActivity - a.lastActivity);
+    const activeStillValid = s.activeSessionId && merged.some(session => session.id === s.activeSessionId);
+    const activeSessionId = activeStillValid ? s.activeSessionId : (inScope[0]?.id ?? null);
 
     return {
       sessions: merged.sort((a, b) => b.lastActivity - a.lastActivity),
       activeSessionId,
-      activeBackend: activeSession?.backend || s.activeBackend,
+      activeBackend: s.activeBackend,
     };
   }),
 
@@ -324,9 +337,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     return {
       activeSessionId: id,
       activeBackend: session.backend,
+      composingNew: false,
       ...backendModePatch,
     };
   }),
+
+  // Start a blank chat in the current backend/mode. We don't create a session
+  // object yet — useAgentSession.send() will mint one on the first message.
+  // composingNew suppresses the "fall back to latest session" behavior so the
+  // thread shows empty until then.
+  startNewSession: () => set({ activeSessionId: null, composingNew: true }),
 
   setSessionMessages: (sessionId, messages) => set((s) => ({
     sessions: s.sessions.map(sess => {

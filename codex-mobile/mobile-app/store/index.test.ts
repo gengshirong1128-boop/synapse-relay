@@ -52,3 +52,54 @@ describe('setActiveSession', () => {
     expect(useAppStore.getState().claudeTransportMode).toBe('bridge');
   });
 });
+
+describe('mergeRemoteSessions', () => {
+  beforeEach(() => {
+    useAppStore.setState({
+      sessions: [],
+      activeSessionId: null,
+      activeBackend: 'codex',
+      codexTransportMode: 'bridge',
+      claudeTransportMode: 'bridge',
+    });
+  });
+
+  it('keeps the user-selected backend even when newest session is the other backend', () => {
+    // User picked Codex. A refresh brings in a newer Claude history session.
+    // Regression: this used to flip activeBackend to claude-code (bug: phone
+    // showed "Claude Code" while the user was on Codex).
+    useAppStore.getState().mergeRemoteSessions([
+      { id: 'claude-session:aaa', backend: 'claude-code', transportMode: 'bridge', lastActivity: 2000 },
+      { id: 'codex-thread:bbb', backend: 'codex', transportMode: 'bridge', lastActivity: 1000 },
+    ]);
+    expect(useAppStore.getState().activeBackend).toBe('codex');
+  });
+
+  it('defaults active session within the selected backend, not the global newest', () => {
+    useAppStore.getState().mergeRemoteSessions([
+      { id: 'claude-session:aaa', backend: 'claude-code', transportMode: 'bridge', lastActivity: 2000 },
+      { id: 'codex-thread:bbb', backend: 'codex', transportMode: 'bridge', lastActivity: 1000 },
+    ]);
+    // newest overall is the Claude one, but active must be the in-scope Codex session
+    expect(useAppStore.getState().activeSessionId).toBe('codex-thread:bbb');
+  });
+
+  it('preserves an already-active session across a refresh', () => {
+    useAppStore.setState({ activeSessionId: 'codex-thread:bbb', activeBackend: 'codex' });
+    useAppStore.getState().mergeRemoteSessions([
+      { id: 'codex-thread:bbb', backend: 'codex', transportMode: 'bridge', lastActivity: 1000 },
+      { id: 'codex-thread:ccc', backend: 'codex', transportMode: 'bridge', lastActivity: 5000 },
+    ]);
+    expect(useAppStore.getState().activeSessionId).toBe('codex-thread:bbb');
+  });
+});
+
+describe('startNewSession', () => {
+  it('clears the active session and flags composingNew (blank thread)', () => {
+    useAppStore.setState({ activeSessionId: 'codex-thread:bbb', composingNew: false });
+    useAppStore.getState().startNewSession();
+    const s = useAppStore.getState();
+    expect(s.activeSessionId).toBeNull();
+    expect(s.composingNew).toBe(true);
+  });
+});
