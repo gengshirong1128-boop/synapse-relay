@@ -16,5 +16,5 @@ export function SettingsCard({ colors, children }: Props) {
 }
 
 const styles = StyleSheet.create({
-  card: { alignSelf: 'stretch', minWidth: 0, overflow: 'hidden', borderRadius: 12, padding: 16, borderWidth: 1 },
+  card: { alignSelf: 'stretch', minWidth: 0, overflow: 'hidden', borderRadius: 16, padding: 16, borderWidth: StyleSheet.hairlineWidth, marginBottom: 12 },
 });

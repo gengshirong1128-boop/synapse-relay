@@ -201,7 +201,7 @@ export default function SettingsScreen() {
           </SettingsCard>
         )}
 
-        <Text style={[st.section, { color: colors.textTertiary }]}>Connection</Text>
+        <Text style={[st.section, { color: colors.textTertiary }]}>连接</Text>
         <SettingsCard colors={colors}>
           <Text style={[st.label, { color: colors.text }]}>{t('serverAddress')}</Text>
           <TextInput
@@ -221,7 +221,7 @@ export default function SettingsScreen() {
           </Pressable>
         </SettingsCard>
 
-        <Text style={[st.section, { color: colors.textTertiary }]}>Appearance</Text>
+        <Text style={[st.section, { color: colors.textTertiary }]}>外观</Text>
         <SettingsCard colors={colors}>
           <View style={st.row}>
             <Text style={[st.rowLabel, { color: colors.text }]}>{t('darkMode')}</Text>
@@ -236,7 +236,7 @@ export default function SettingsScreen() {
           </View>
         </SettingsCard>
 
-        <Text style={[st.section, { color: colors.textTertiary }]}>About</Text>
+        <Text style={[st.section, { color: colors.textTertiary }]}>关于</Text>
         <SettingsCard colors={colors}>
           <Text style={[st.rowLabel, { color: colors.text }]}>CodexMobile v1.0.0</Text>
           <Text style={[st.sub, { color: colors.textSecondary }]}>Remote Claude Code / Codex CLI</Text>
@@ -250,7 +250,7 @@ const st = StyleSheet.create({
   container: { flex: 1, overflow: 'hidden' },
   scroller: { flex: 1, minWidth: 0 },
   content: { paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 24 },
-  section: { fontSize: 12, fontWeight: '600', marginTop: 24, marginBottom: 8, letterSpacing: 0.5 },
+  section: { fontSize: 12, fontWeight: '700', marginTop: 20, marginBottom: 10, letterSpacing: 1, textTransform: 'uppercase' },
   label: { fontSize: 14, marginBottom: 6, fontWeight: '700' },
   input: { alignSelf: 'stretch', minWidth: 0, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, marginBottom: 12, borderWidth: 1 },
   btn: { alignSelf: 'stretch', borderRadius: 8, paddingVertical: 10, alignItems: 'center', marginTop: 4 },

@@ -15,6 +15,9 @@ export interface ThemeColors {
   userText: string;
   assistantBg: string;
   assistantText: string;
+  assistantBubbleBg: string;
+  userBubbleBg: string;
+  userBubbleText: string;
   codeBg: string;
   codeText: string;
   inputBg: string;
@@ -48,6 +51,9 @@ const claudeLight: ThemeColors = {
   userText: '#2d2418',
   assistantBg: 'transparent',
   assistantText: '#2d2418',
+  assistantBubbleBg: '#ffffff',
+  userBubbleBg: '#c96442',
+  userBubbleText: '#ffffff',
   codeBg: '#1e1e1e',
   codeText: '#d4d4d4',
   inputBg: '#ffffff',
@@ -81,6 +87,9 @@ const claudeDark: ThemeColors = {
   userText: '#ede8e0',
   assistantBg: 'transparent',
   assistantText: '#ede8e0',
+  assistantBubbleBg: '#242220',
+  userBubbleBg: '#da7756',
+  userBubbleText: '#1a1816',
   codeBg: '#0d0d0d',
   codeText: '#d4d4d4',
   inputBg: '#242220',
@@ -114,6 +123,9 @@ const codexLight: ThemeColors = {
   userText: '#171717',
   assistantBg: 'transparent',
   assistantText: '#171717',
+  assistantBubbleBg: '#f4f4f4',
+  userBubbleBg: '#171717',
+  userBubbleText: '#ffffff',
   codeBg: '#1e1e1e',
   codeText: '#e0e0e0',
   inputBg: '#ffffff',
@@ -147,6 +159,9 @@ const codexDark: ThemeColors = {
   userText: '#f5f5f5',
   assistantBg: 'transparent',
   assistantText: '#f5f5f5',
+  assistantBubbleBg: '#1c1c1c',
+  userBubbleBg: '#e8e8e8',
+  userBubbleText: '#0a0a0a',
   codeBg: '#000000',
   codeText: '#e0e0e0',
   inputBg: '#141414',

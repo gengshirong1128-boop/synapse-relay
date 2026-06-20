@@ -17,7 +17,7 @@ export function AgentMessageRow({ msg, backend, colors, copy }: Props) {
   if (msg.toolUse) return <ToolRow msg={msg} colors={colors} copy={copy} />;
   if (msg.isThinking) return <ThinkingRow msg={msg} colors={colors} />;
   if (msg.role === 'system') return <SystemRow msg={msg} colors={colors} />;
-  if (msg.role === 'user') return <UserRow msg={msg} colors={colors} copy={copy} />;
+  if (msg.role === 'user') return <UserRow msg={msg} colors={colors} />;
   return <AgentRow msg={msg} backend={backend} colors={colors} copy={copy} />;
 }
 
@@ -92,12 +92,11 @@ function SystemRow({ msg, colors }: Pick<Props, 'msg' | 'colors'>) {
   );
 }
 
-function UserRow({ msg, colors, copy }: Omit<Props, 'backend'>) {
+function UserRow({ msg, colors }: Pick<Props, 'msg' | 'colors'>) {
   return (
     <View style={styles.userTurn}>
-      <View style={[styles.userCard, { backgroundColor: colors.userBg, borderColor: colors.border }]}>
-        <Text style={[styles.turnLabel, { color: colors.textTertiary }]}>{copy.userLabel}</Text>
-        <Text style={[styles.userText, { color: colors.userText }]}>{msg.content}</Text>
+      <View style={[styles.userBubble, { backgroundColor: colors.userBubbleBg }]}>
+        <Text style={[styles.userBubbleText, { color: colors.userBubbleText }]}>{msg.content}</Text>
       </View>
     </View>
   );
@@ -130,11 +129,10 @@ function AgentRow({ msg, backend, colors, copy }: Props) {
 
   return (
     <View style={styles.agentTurn}>
-      <View style={[styles.agentRail, { backgroundColor: colors.accent }]} />
-      <View style={styles.agentBody}>
-        <Text style={[styles.turnLabel, { color: colors.textTertiary }]}>
-          {backend === 'codex' ? copy.assistantLabel : 'Claude Code'}
-        </Text>
+      <Text style={[styles.turnLabel, styles.agentLabel, { color: colors.textTertiary }]}>
+        {backend === 'codex' ? copy.assistantLabel : 'Claude Code'}
+      </Text>
+      <View style={[styles.agentBubble, { backgroundColor: colors.assistantBubbleBg, borderColor: colors.border }]}>
         {msg.isStreaming ? (
           <Text style={[styles.agentText, { color: colors.assistantText }]}>{msg.content}|</Text>
         ) : (
@@ -146,14 +144,15 @@ function AgentRow({ msg, backend, colors, copy }: Props) {
 }
 
 const styles = StyleSheet.create({
-  userTurn: { alignItems: 'flex-end', marginVertical: 10 },
-  userCard: {
-    maxWidth: '88%',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+  userTurn: { alignItems: 'flex-end', marginVertical: 6 },
+  userBubble: {
+    maxWidth: '82%',
+    borderRadius: 18,
+    borderBottomRightRadius: 5,
+    paddingHorizontal: 14,
     paddingVertical: 10,
   },
+  userBubbleText: { fontSize: 15, lineHeight: 21 },
   turnLabel: {
     fontSize: 11,
     fontWeight: '700',
@@ -161,10 +160,16 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 5,
   },
-  userText: { fontSize: 15, lineHeight: 22 },
-  agentTurn: { flexDirection: 'row', alignItems: 'flex-start', marginVertical: 12 },
-  agentRail: { width: 3, alignSelf: 'stretch', borderRadius: 2, marginRight: 10 },
-  agentBody: { flex: 1, minWidth: 0 },
+  agentTurn: { alignItems: 'flex-start', marginVertical: 6 },
+  agentLabel: { marginLeft: 4, marginBottom: 4 },
+  agentBubble: {
+    maxWidth: '90%',
+    borderRadius: 18,
+    borderBottomLeftRadius: 5,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+  },
   agentText: { fontSize: 15, lineHeight: 23 },
   toolRow: {
     borderWidth: StyleSheet.hairlineWidth,
