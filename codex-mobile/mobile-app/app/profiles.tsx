@@ -91,7 +91,7 @@ export default function ProfilesScreen() {
             </Pressable>
             <View style={styles.cardActions}>
               <Pressable onPress={() => startEdit(item)} accessibilityRole="button" accessibilityLabel="编辑配置"><Text style={[styles.editText, { color: colors.accent }]}>编辑</Text></Pressable>
-              <Pressable onPress={() => handleDelete(item.id)} accessibilityRole="button" accessibilityLabel="删除配置"><Text style={styles.deleteText}>删除</Text></Pressable>
+              <Pressable onPress={() => handleDelete(item.id)} accessibilityRole="button" accessibilityLabel="删除配置"><Text style={[styles.deleteText, { color: colors.danger }]}>删除</Text></Pressable>
             </View>
           </View>
         )}
@@ -118,6 +118,6 @@ const styles = StyleSheet.create({
   cardModel: { fontSize: 12, marginTop: 2 },
   cardActions: { flexDirection: 'row', gap: 16 },
   editText: { fontSize: 14 },
-  deleteText: { color: '#ff453a', fontSize: 14 },
+  deleteText: { fontSize: 14 },
   empty: { fontSize: 14, textAlign: 'center', marginTop: 20 },
 });

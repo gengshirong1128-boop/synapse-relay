@@ -11,6 +11,8 @@ export interface ThemeColors {
   textTertiary: string;
   accent: string;
   accentSoft: string;
+  danger: string;
+  dangerText: string;
   userBg: string;
   userText: string;
   assistantBg: string;
@@ -47,6 +49,8 @@ const claudeLight: ThemeColors = {
   textTertiary: '#9c8e7c',
   accent: '#c96442',
   accentSoft: '#c9644215',
+  danger: '#d70015',
+  dangerText: '#ffffff',
   userBg: '#f2efe8',
   userText: '#2d2418',
   assistantBg: 'transparent',
@@ -83,6 +87,8 @@ const claudeDark: ThemeColors = {
   textTertiary: '#6b5e4f',
   accent: '#da7756',
   accentSoft: '#da775620',
+  danger: '#ff6b60',
+  dangerText: '#1a1816',
   userBg: '#2e2b28',
   userText: '#ede8e0',
   assistantBg: 'transparent',
@@ -119,6 +125,8 @@ const codexLight: ThemeColors = {
   textTertiary: '#999999',
   accent: '#171717',
   accentSoft: '#17171710',
+  danger: '#d70015',
+  dangerText: '#ffffff',
   userBg: '#f2f2f2',
   userText: '#171717',
   assistantBg: 'transparent',
@@ -155,6 +163,8 @@ const codexDark: ThemeColors = {
   textTertiary: '#777777',
   accent: '#f5f5f5',
   accentSoft: '#ffffff14',
+  danger: '#ff6b60',
+  dangerText: '#0a0a0a',
   userBg: '#1a1a1a',
   userText: '#f5f5f5',
   assistantBg: 'transparent',

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet, FlatList } from 'react-native';
 import type { RefreshControlProps } from 'react-native';
 import { ThemeColors } from '../theme/colors';
@@ -20,10 +20,10 @@ interface Props {
 }
 
 export function FileTree({ files, onNavigate, onFilePress, currentPath, colors, refreshControl, emptyHint }: Props) {
-  const sorted = [...files].sort((a, b) => {
+  const sorted = useMemo(() => [...files].sort((a, b) => {
     if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
     return a.name.localeCompare(b.name);
-  });
+  }), [files]);
 
   return (
     <View style={styles.container}>

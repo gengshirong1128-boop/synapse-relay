@@ -40,8 +40,8 @@ export function AgentComposer({ value, placeholder, colors, isStreaming, disable
           onSubmitEditing={canSend ? onSend : undefined}
         />
         {isStreaming ? (
-          <Pressable style={[styles.stopBtn]} onPress={onStop} accessibilityRole="button" accessibilityLabel="停止运行">
-            <Text style={styles.stopIcon}>■</Text>
+          <Pressable style={[styles.stopBtn, { backgroundColor: colors.danger }]} onPress={onStop} accessibilityRole="button" accessibilityLabel="停止运行">
+            <Text style={[styles.stopIcon, { color: colors.dangerText }]}>■</Text>
           </Pressable>
         ) : (
           <Pressable
@@ -69,6 +69,6 @@ const styles = StyleSheet.create({
   input: { flex: 1, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 13, fontSize: 16, maxHeight: 120, borderWidth: StyleSheet.hairlineWidth },
   sendBtn: { marginLeft: 8, width: 46, height: 46, borderRadius: 23, justifyContent: 'center', alignItems: 'center' },
   sendIcon: { fontSize: 22, fontWeight: '800' },
-  stopBtn: { marginLeft: 8, width: 46, height: 46, borderRadius: 23, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ff3b30' },
-  stopIcon: { fontSize: 18, color: '#fff', fontWeight: '800' },
+  stopBtn: { marginLeft: 8, width: 46, height: 46, borderRadius: 23, justifyContent: 'center', alignItems: 'center' },
+  stopIcon: { fontSize: 18, fontWeight: '800' },
 });

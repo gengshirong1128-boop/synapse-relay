@@ -49,7 +49,7 @@ function ThinkingRow({ msg, colors }: Pick<Props, 'msg' | 'colors'>) {
 function ToolRow({ msg, colors, copy }: Omit<Props, 'backend'>) {
   const status = msg.toolUse?.status || 'running';
   const statusColor = status === 'failed' || status === 'error'
-    ? '#ff453a'
+    ? colors.danger
     : status === 'completed' || status === 'success'
       ? colors.accent
       : colors.textTertiary;
