@@ -6,6 +6,7 @@ import { pairAndSave } from '../services/auth';
 import { validateRelayUrl } from '../services/relayUrl';
 import { connectionCandidates } from '../services/pairing';
 import { getTheme } from '../theme/colors';
+import { Button } from '../components/ui';
 
 export default function ConnectScreen() {
   const router = useRouter();
@@ -121,13 +122,13 @@ export default function ConnectScreen() {
         maxLength={6}
       />
 
-      <Pressable
-        style={[styles.connectBtn, { backgroundColor: colors.accent }, connecting && styles.connectBtnDisabled]}
+      <Button
+        colors={colors}
+        label={connecting ? '连接中...' : '连接'}
         onPress={handleConnect}
         disabled={connecting}
-      >
-        <Text style={[styles.connectBtnText, { color: colors.bg }]}>{connecting ? '连接中...' : '连接'}</Text>
-      </Pressable>
+        fullWidth
+      />
 
       <View style={[styles.helpSection, { backgroundColor: colors.surface }]}>
         <Text style={[styles.helpTitle, { color: colors.text }]}>使用说明</Text>
@@ -154,9 +155,6 @@ const styles = StyleSheet.create({
   extraHint: { fontSize: 12, marginTop: -8, marginBottom: 16 },
   input: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, marginBottom: 16 },
   codeInput: { fontSize: 24, letterSpacing: 8, textAlign: 'center' },
-  connectBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
-  connectBtnDisabled: { opacity: 0.5 },
-  connectBtnText: { fontSize: 17, fontWeight: '600' },
   helpSection: { marginTop: 40, padding: 16, borderRadius: 12 },
   helpTitle: { fontSize: 15, fontWeight: '600', marginBottom: 8 },
   helpText: { fontSize: 13, lineHeight: 22 },
