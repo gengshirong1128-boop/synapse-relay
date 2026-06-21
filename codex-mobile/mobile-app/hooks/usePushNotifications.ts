@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { relayClient } from '../services/websocket';
 import { useAppStore } from '../store';
@@ -37,6 +38,13 @@ export function usePushNotifications() {
 
 async function registerForPush(): Promise<void> {
   if (Platform.OS === 'web') return;
+  // Expo push tokens require a real EAS projectId. Until the project runs
+  // `eas init` (extra.eas.projectId), there's nothing valid to register — using
+  // a placeholder id just throws. So read the real id and skip cleanly if absent.
+  const projectId =
+    Constants.expoConfig?.extra?.eas?.projectId ??
+    (Constants as unknown as { easConfig?: { projectId?: string } }).easConfig?.projectId;
+  if (!projectId) return;
   try {
     const { status: existing } = await Notifications.getPermissionsAsync();
     let finalStatus = existing;
@@ -45,14 +53,12 @@ async function registerForPush(): Promise<void> {
       finalStatus = status;
     }
     if (finalStatus !== 'granted') return;
-    const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: '00000000-0000-0000-0000-000000000000',
-    });
+    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
     relayClient.send({
       type: 'register_push',
       payload: { pushToken: tokenData.data },
     });
   } catch {
-    // Push unavailable in Expo Go
+    // Push unavailable (e.g. Expo Go without a dev build) — non-fatal.
   }
 }
