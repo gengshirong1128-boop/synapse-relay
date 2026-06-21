@@ -1,201 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Activity,
-  AlertTriangle,
-  Archive,
-  ArrowRight,
-  Bot,
-  BrainCircuit,
-  Check,
-  CheckCircle2,
-  ChevronRight,
-  CircleStop,
-  Clipboard,
-  Clock3,
-  Eye,
-  Download,
-  FileCheck2,
-  FileCode2,
-  FolderGit2,
-  GitMerge,
-  History,
-  Languages,
-  LockKeyhole,
-  ListChecks,
-  MessageSquare,
-  Play,
-  Plug,
-  Plus,
-  Radio,
-  RefreshCw,
-  RotateCcw,
-  Send,
-  ShieldCheck,
-  Sparkles,
-  Terminal,
-  Trash2,
-  Users,
-  Waves,
-  X,
-  Zap,
-} from 'lucide-react';
+import { AlertTriangle, Check, RotateCcw, X } from 'lucide-react';
+import { ActivityCenter } from './components/ActivityCenter';
+import { AppHeader } from './components/AppHeader';
+import { ExecutionPlanPanel } from './components/ExecutionPlanPanel';
+import { HeroSection } from './components/HeroSection';
+import { ManagerReportPanel } from './components/ManagerReportPanel';
+import { PlanForm } from './components/PlanForm';
+import { ResultReportPanel } from './components/ResultReportPanel';
+import { Sidebar } from './components/Sidebar';
+import { SupervisorPanel } from './components/SupervisorPanel';
+import { TaskDraftEditor } from './components/TaskDraftEditor';
 import { translations, type Language, type TranslationKey } from './translations';
 import { requestJson } from './api';
 import { computeProgress, currentWaveIndex as deriveCurrentWaveIndex, launchableWaveTasks as deriveLaunchableWaveTasks, pickDefaultAgentId, agentForIndex, mapAgentTestResult, type AgentTestResult } from './planLogic';
-
-type Agent = {
-  id: string;
-  name: string;
-  status: string;
-  executablePath?: string | null;
-  capabilities: string[];
-};
-
-type TaskDraft = {
-  task_id: string;
-  agent_id: string;
-  title: string;
-  instructions: string;
-  read_paths: string;
-  write_paths: string;
-  depends_on: string;
-};
-
-type PlanTask = {
-  task_id: string;
-  agent_id: string;
-  title: string;
-  instructions: string;
-  read_paths: string[];
-  write_paths: string[];
-  depends_on: string[];
-  status: string;
-  wave: number;
-  pid?: number | null;
-  log_path?: string | null;
-  exit_code?: number | null;
-  attempts?: number;
-  run_history?: RunRecord[];
-};
-
-type RunRecord = {
-  attempt: number;
-  status: string;
-  started_at?: string | null;
-  finished_at?: string | null;
-  exit_code?: number | null;
-  log_path?: string | null;
-};
-
-type Plan = {
-  plan_id: string;
-  project_path: string;
-  goal: string;
-  created_at?: string;
-  updated_at?: string;
-  supervisor_agent_id?: string | null;
-  manager_report?: ManagerReport | null;
-  status: string;
-  archived?: boolean;
-  archived_at?: string | null;
-  acceptance?: AcceptanceDecision;
-  waves: string[][];
-  conflicts: Array<{ left_task_id: string; right_task_id: string; reasons: string[] }>;
-  tasks: PlanTask[];
-  locks: Record<string, string>;
-  boundary_report: {
-    changed_paths: string[];
-    undeclared_changes: string[];
-    ok: boolean;
-  };
-  shared_plan_path: string;
-  event_log_path: string;
-  supervisor_run: {
-    status: string;
-    pid?: number | null;
-    log_path?: string | null;
-    exit_code?: number | null;
-    attempts?: number;
-    run_history?: RunRecord[];
-  };
-  events: Array<{ event_id: string; type: string; created_at: string; payload: Record<string, unknown> }>;
-};
-
-type AcceptanceDecision = {
-  status: 'pending' | 'accepted' | 'rejected';
-  note: string;
-  decided_at?: string | null;
-};
-
-type ResultReport = {
-  plan_id: string;
-  goal: string;
-  generated_at: string;
-  verdict: 'ready' | 'in_progress' | 'needs_attention';
-  ready_for_acceptance: boolean;
-  suggested_next_action: 'accept' | 'complete_tasks' | 'resolve_issues';
-  acceptance: AcceptanceDecision;
-  acceptance_criteria: string[];
-  summary: Record<'total' | 'pending' | 'running' | 'completed' | 'failed' | 'cancelled', number>;
-  tasks: Array<{
-    task_id: string;
-    agent_id: string;
-    title: string;
-    status: string;
-    attempts: number;
-    exit_code?: number | null;
-    write_paths: string[];
-    public_output: string;
-  }>;
-  boundary_report: Plan['boundary_report'];
-  issues: Array<{ code: string; items: string[] }>;
-};
-
-type ManagerReport = {
-  mode: 'agent' | 'fallback';
-  manager_agent_id: string;
-  manager_error?: string;
-  analysis: string;
-  recommendations: string[];
-  risks: string[];
-  acceptance_criteria: string[];
-  project_summary: {
-    project_name?: string;
-    total_files?: number;
-    readable_files?: number;
-    languages?: Record<string, number>;
-    top_level_areas?: string[];
-    relevant_files?: string[];
-    warnings?: string[];
-  };
-  tasks: Array<{
-    task_id: string;
-    agent_id: string;
-    title: string;
-    instructions: string;
-    read_paths: string[];
-    write_paths: string[];
-    depends_on: string[];
-  }>;
-};
-
-type AgentActivity = {
-  task_id?: string;
-  agent_id?: string | null;
-  status: string;
-  title?: string;
-  instructions?: string;
-  read_paths?: string[];
-  write_paths?: string[];
-  depends_on?: string[];
-  started_at?: string | null;
-  finished_at?: string | null;
-  exit_code?: number | null;
-  attempts?: number;
-  run_history?: RunRecord[];
-  public_output: string;
-  events: Plan['events'];
-};
+import type { Agent, AgentActivity, AgentTestState, ManagerReport, Plan, PlanTask, ResultReport, TaskDraft } from './types';
 
 const launchableAgentIds = new Set(['cli.codex', 'cli.claude_code', 'cli.gemini', 'cli.opencode']);
 
@@ -301,7 +119,7 @@ function App() {
   const hasRunningAgents = Boolean(plan?.tasks.some((task) => task.status === 'running') || plan?.supervisor_run.status === 'running');
   const progress = plan ? computeProgress(plan.tasks) : 0;
   const currentWaveIndex = plan ? deriveCurrentWaveIndex(plan.waves, plan.tasks) : -1;
-  const launchableWaveTasks = plan ? deriveLaunchableWaveTasks(plan.waves, plan.tasks, currentWaveIndex) : [];
+  const launchableWaveTasks: PlanTask[] = plan ? deriveLaunchableWaveTasks(plan.waves, plan.tasks, currentWaveIndex) : [];
 
   const showNotice = (message: string) => {
     setNotice(message);
@@ -872,127 +690,42 @@ function App() {
     return t('readyToRun');
   };
 
-  const statusTone = (status: string) =>
-    status === 'completed' || status === 'callable' || status === 'accepted'
-      ? 'good'
-      : status === 'running'
-        ? 'active'
-        : status === 'failed' || status === 'needs_attention' || status === 'rejected'
-          ? 'bad'
-          : 'muted';
-
-  const StatusPill = ({ status }: { status: string }) => (
-    <span className={`status-pill ${statusTone(status)}`}>{statusLabels[status] || status || t('statusUnknown')}</span>
-  );
+  const statusPillConfig = { statusLabels, statusUnknownLabel: t('statusUnknown') };
 
   return (
     <main className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <div className="brand-mark"><GitMerge size={19} /></div>
-          <div>
-            <strong>{t('appName')}</strong>
-            <span>{t('appTagline')}</span>
-          </div>
-        </div>
-        <div className="topbar-right">
-          <span><ShieldCheck size={15} /> {t('declareFirst')}</span>
-          <span><LockKeyhole size={15} /> {t('fileLocks')}</span>
-          <button className="ghost-button" onClick={() => setLanguage((current) => (current === 'zh' ? 'en' : 'zh'))}>
-            <Languages size={15} /> {t('switchLanguage')}
-          </button>
-          <button className="ghost-button" disabled={busy === 'agents'} onClick={() => void loadAgents(true)}>
-            <RefreshCw size={15} /> {t('refreshAgents')}
-          </button>
-        </div>
-      </header>
+      <AppHeader
+        busy={busy}
+        t={t}
+        onRefreshAgents={() => void loadAgents(true)}
+        onToggleLanguage={() => setLanguage((current) => (current === 'zh' ? 'en' : 'zh'))}
+      />
 
-      <section className="hero">
-        <div className="hero-copy">
-          <span className="eyebrow">{t('heroEyebrow')}</span>
-          <h1>{t('heroTitle')}<br /><em>{t('heroAccent')}</em></h1>
-          <p>{t('heroDescription')}</p>
-          <div className="hero-actions">
-            <button className="primary-button" onClick={() => document.getElementById('plan-form')?.scrollIntoView({ behavior: 'smooth' })}>
-              <Zap size={16} /> {t('newPlan')}
-            </button>
-            <button className="ghost-button" onClick={loadStarter}><Sparkles size={15} /> {t('useStarter')}</button>
-          </div>
-        </div>
-        <div className="hero-proof">
-          <div><Users /><strong>{callableAgents.length}</strong><span>{t('callableAgents')}</span></div>
-          <div><Waves /><strong>{plan?.waves.length || 0}</strong><span>{t('executionWaves')}</span></div>
-          <div><LockKeyhole /><strong>{Object.keys(plan?.locks || {}).length}</strong><span>{t('activeLocks')}</span></div>
-        </div>
-      </section>
+      <HeroSection
+        callableAgentCount={callableAgents.length}
+        plan={plan}
+        t={t}
+        onLoadStarter={loadStarter}
+      />
 
       {notice && <div className="toast"><Check size={15} />{notice}</div>}
       {error && <div className="error-banner"><AlertTriangle size={18} /><span>{error}</span><button onClick={() => setError('')} aria-label="Close"><X size={15} /></button></div>}
 
       <div className="workspace">
-        <aside className="sidebar">
-          <section className="agent-panel panel">
-            <div className="panel-heading">
-              <div><Bot size={18} /><strong>{t('localAgents')}</strong></div>
-              <span>{agents.length} {t('detected')}</span>
-            </div>
-            <div className="agent-list">
-              {agents.map((agent) => (
-                <article className={`agent-card ${agent.status === 'callable' ? 'callable' : ''}`} key={agent.id}>
-                  <div className="agent-icon"><Bot size={17} /></div>
-                  <div className="agent-info">
-                    <strong>{agent.name}</strong>
-                    <span title={agent.executablePath || agent.id}>{agent.executablePath || agent.id}</span>
-                    <div>{agent.capabilities.map((item) => <small key={item}>{item}</small>)}</div>
-                    {agent.status !== 'not_installed' && (
-                      <button
-                        className="ghost-button agent-test"
-                        disabled={agentTests[agent.id]?.state === 'testing'}
-                        onClick={() => void testAgentConnection(agent.id)}
-                      >
-                        <Plug size={13} />
-                        {agentTests[agent.id]?.state === 'testing'
-                          ? t('testing')
-                          : agentTests[agent.id]?.state === 'ok'
-                            ? t('connectionOk')
-                            : agentTests[agent.id]?.state === 'fail'
-                              ? t('connectionFailed')
-                              : t('testConnection')}
-                      </button>
-                    )}
-                    {agentTests[agent.id]?.detail && (
-                      <small className={`agent-test-detail ${agentTests[agent.id]?.state}`} title={agentTests[agent.id]?.detail}>
-                        {agentTests[agent.id]?.detail}
-                      </small>
-                    )}
-                  </div>
-                  <StatusPill status={agent.status} />
-                </article>
-              ))}
-              {!agents.length && <div className="empty-state"><RefreshCw size={18} /><span>{t('noCallableAgents')}</span></div>}
-            </div>
-          </section>
-
-          <section className="history-panel panel">
-            <div className="panel-heading">
-              <div><History size={17} /><strong>{t('recentPlans')}</strong></div>
-              <div className="heading-actions">
-                <button className={`icon-button ${showArchived ? 'active' : ''}`} onClick={() => { const next = !showArchived; setShowArchived(next); void loadPlans(next); }} aria-label={showArchived ? t('hideArchived') : t('showArchived')} title={showArchived ? t('hideArchived') : t('showArchived')}><Archive size={14} /></button>
-                <button className="icon-button" onClick={() => void loadPlans()} aria-label={t('refresh')}><RefreshCw size={14} /></button>
-              </div>
-            </div>
-            <div className="history-list">
-              {recentPlans.slice(0, 6).map((item) => (
-                <button className={plan?.plan_id === item.plan_id ? 'active' : ''} key={item.plan_id} onClick={() => void refreshPlan(item.plan_id)}>
-                  <span><FolderGit2 size={14} /><strong>{item.goal || item.plan_id}</strong></span>
-                  <small><StatusPill status={item.status} />{item.archived && <span className="archive-label">{t('archived')}</span>}{formatTime(item.updated_at || item.created_at)}</small>
-                  <ArrowRight size={13} />
-                </button>
-              ))}
-              {!recentPlans.length && <div className="empty-state compact"><Clock3 size={16} /><span>{t('noRecentPlans')}</span></div>}
-            </div>
-          </section>
-        </aside>
+        <Sidebar
+          agents={agents}
+          agentTests={agentTests}
+          formatTime={formatTime}
+          plan={plan}
+          recentPlans={recentPlans}
+          showArchived={showArchived}
+          t={t}
+          onLoadPlans={(includeArchived) => void loadPlans(includeArchived)}
+          onRefreshPlan={(planId) => void refreshPlan(planId)}
+          onSetShowArchived={setShowArchived}
+          onTestAgentConnection={(agentId) => void testAgentConnection(agentId)}
+          {...statusPillConfig}
+        />
 
         <section className="planner">
           <div className="workspace-heading">
@@ -1003,329 +736,129 @@ function App() {
             <button className="ghost-button" onClick={resetDraft}><RotateCcw size={14} />{t('newPlan')}</button>
           </div>
 
-          <div className="panel plan-form" id="plan-form">
-            <div className="panel-heading">
-              <div><FolderGit2 size={18} /><strong>{t('stepProject')}</strong></div>
-              <span>{t('projectHint')}</span>
-            </div>
-            <div className="form-grid">
-              <label>{t('projectPath')}<input value={projectPath} onChange={(event) => setProjectPath(event.target.value)} /></label>
-              <label>{t('managerAgent')}
-                <select value={supervisor} onChange={(event) => setSupervisor(event.target.value)}>
-                  <option value="">{t('noSupervisor')}</option>
-                  {callableAgents.map((agent) => <option value={agent.id} key={agent.id}>{agent.name}</option>)}
-                </select>
-              </label>
-              <label className="wide">{t('userGoal')}<textarea rows={3} value={goal} onChange={(event) => { setGoal(event.target.value); setValidationErrors([]); }} placeholder={t('goalPlaceholder')} /></label>
-            </div>
-            <div className="manager-callout">
-              <div><BrainCircuit size={20} /><span><strong>{t('managerAgent')}</strong><small>{t('autoPlanDescription')}</small></span></div>
-              <button className="primary-button" disabled={busy === 'manager' || !callableAgents.length} onClick={() => void generateManagerDraft()}>
-                {busy === 'manager' ? <RefreshCw className="spin" size={16} /> : <Sparkles size={16} />}
-                {busy === 'manager' ? t('autoPlanning') : t('autoPlan')}
-              </button>
-            </div>
-            <div className="form-footer">
-              <button className="text-button" onClick={loadStarter}><Sparkles size={14} />{t('useStarter')}</button>
-              <button className="text-button" onClick={resetDraft}><Trash2 size={14} />{t('clearDraft')}</button>
-            </div>
-          </div>
+          <PlanForm
+            busy={busy}
+            callableAgents={callableAgents}
+            goal={goal}
+            projectPath={projectPath}
+            supervisor={supervisor}
+            t={t}
+            onClearValidationErrors={() => setValidationErrors([])}
+            onGenerateManagerDraft={() => void generateManagerDraft()}
+            onLoadStarter={loadStarter}
+            onResetDraft={resetDraft}
+            onSetGoal={setGoal}
+            onSetProjectPath={setProjectPath}
+            onSetSupervisor={setSupervisor}
+          />
 
           {activeManagerReport && (
-            <div className="panel manager-report" id="manager-report">
-              <div className="panel-heading">
-                <div><BrainCircuit size={18} /><strong>{t('managerReport')}</strong><span className={`status-pill ${activeManagerReport.mode === 'agent' ? 'good' : 'bad'}`}>{activeManagerReport.mode === 'agent' ? t('agentPlan') : t('fallbackPlan')}</span></div>
-                <button className="ghost-button" onClick={() => setAdvancedOpen((current) => !current)}><ListChecks size={15} />{advancedOpen ? t('hideTasks') : t('reviewTasks')}</button>
-              </div>
-              <div className="report-summary">
-                <div className="report-analysis">
-                  <span>{t('managerAnalysis')}</span>
-                  <p>{activeManagerReport.analysis}</p>
-                </div>
-                <div className="project-facts">
-                  <span>{t('projectSummary')}</span>
-                  <strong>{activeManagerReport.project_summary.project_name || projectPath}</strong>
-                  <small>{activeManagerReport.project_summary.readable_files || 0} files · {activeManagerReport.tasks.length} tasks</small>
-                  <div>{Object.entries(activeManagerReport.project_summary.languages || {}).slice(0, 5).map(([name, count]) => <em key={name}>{name} {count}</em>)}</div>
-                </div>
-              </div>
-              <div className="report-columns">
-                <div><strong><CheckCircle2 size={15} />{t('acceptanceCriteria')}</strong>{activeManagerReport.acceptance_criteria.map((item) => <p key={item}>{item}</p>)}</div>
-                <div><strong><Sparkles size={15} />{t('managerRecommendations')}</strong>{activeManagerReport.recommendations.map((item) => <p key={item}>{item}</p>)}</div>
-                <div className={activeManagerReport.risks.length ? 'risk-column' : ''}><strong><AlertTriangle size={15} />{t('managerRisks')}</strong>{activeManagerReport.risks.map((item) => <p key={item}>{item}</p>)}</div>
-              </div>
-              <div className="report-actions">
-                <button className="ghost-button" onClick={() => setAdvancedOpen((current) => !current)}><ListChecks size={15} />{advancedOpen ? t('hideTasks') : t('reviewTasks')}</button>
-                {managerReport && <button className="primary-button" disabled={busy === 'create'} onClick={() => void createPlan()}>{busy === 'create' ? <RefreshCw className="spin" size={16} /> : <ShieldCheck size={16} />}{t('approvePlan')}</button>}
-              </div>
-            </div>
+            <ManagerReportPanel
+              advancedOpen={advancedOpen}
+              busy={busy}
+              managerReport={managerReport}
+              projectPath={projectPath}
+              report={activeManagerReport}
+              t={t}
+              onCreatePlan={() => void createPlan()}
+              onToggleAdvanced={() => setAdvancedOpen((current) => !current)}
+            />
           )}
 
-          <div className="panel task-builder">
-            <div className="panel-heading">
-              <div><GitMerge size={18} /><strong>{activeManagerReport ? t('stepTasks') : t('advancedEditor')}</strong></div>
-              <div className="heading-actions"><span>{activeManagerReport ? t('taskHint') : t('advancedHint')}</span><button className="ghost-button" onClick={() => setAdvancedOpen((current) => !current)}><ListChecks size={15} />{advancedOpen ? t('hideTasks') : t('reviewTasks')}</button>{advancedOpen && <button className="ghost-button" onClick={() => setTasks((current) => [...current, newTask(current.length + 1, callableAgents[0]?.id)])}><Plus size={15} />{t('addTask')}</button>}</div>
-            </div>
-            {advancedOpen && (
-              <>
-            {callableAgents.length === 0 && <div className="inline-warning"><AlertTriangle size={16} />{t('noCallableAgents')}</div>}
-            <div className="task-drafts">
-              {tasks.map((task, index) => (
-                <article className="task-draft" key={`${task.task_id}-${index}`}>
-                  <div className="task-index">A{index + 1}</div>
-                  <div className="task-fields">
-                    <div className="compact-row">
-                      <label>{t('taskId')}<input value={task.task_id} onChange={(event) => updateTask(index, { task_id: event.target.value })} /></label>
-                      <label>{t('executorAgent')}
-                        <select value={task.agent_id} onChange={(event) => updateTask(index, { agent_id: event.target.value })}>
-                          <option value="">-</option>
-                          {callableAgents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
-                        </select>
-                      </label>
-                      <label className="grow">{t('taskTitle')}<input value={task.title} onChange={(event) => updateTask(index, { title: event.target.value })} placeholder={t('taskTitlePlaceholder')} /></label>
-                    </div>
-                    <label>{t('taskInstructions')}<textarea rows={2} value={task.instructions} onChange={(event) => updateTask(index, { instructions: event.target.value })} placeholder={t('instructionsPlaceholder')} /></label>
-                    <div className="compact-row boundaries">
-                      <label><Eye size={14} />{t('allowedRead')}<textarea rows={2} value={task.read_paths} onChange={(event) => updateTask(index, { read_paths: event.target.value })} placeholder={t('pathPlaceholder')} /></label>
-                      <label><FileCode2 size={14} />{t('allowedWrite')}<textarea rows={2} value={task.write_paths} onChange={(event) => updateTask(index, { write_paths: event.target.value })} placeholder={t('pathPlaceholder')} /></label>
-                      <label><ChevronRight size={14} />{t('mustWait')}<textarea rows={2} value={task.depends_on} onChange={(event) => updateTask(index, { depends_on: event.target.value })} placeholder={t('dependencyPlaceholder')} /></label>
-                    </div>
-                  </div>
-                  <button className="icon-button danger" aria-label={t('removeTask')} title={t('removeTask')} onClick={() => setTasks((current) => current.filter((_, taskIndex) => taskIndex !== index))}><Trash2 size={16} /></button>
-                </article>
-              ))}
-              {!tasks.length && <div className="empty-state task-empty"><Plus size={18} /><span>{t('validationTaskRequired')}</span><button className="ghost-button" onClick={() => setTasks([newTask(1, callableAgents[0]?.id)])}>{t('addTask')}</button></div>}
-            </div>
-            {validationErrors.length > 0 && (
-              <div className="validation-box">
-                <strong><AlertTriangle size={15} />{t('validationTitle')}</strong>
-                {validationErrors.map((item) => <span key={item}>{item}</span>)}
-              </div>
-            )}
-            <button className="primary-button create-plan" disabled={busy === 'create'} onClick={() => void createPlan()}>
-              {busy === 'create' ? <RefreshCw className="spin" size={17} /> : <ShieldCheck size={17} />}
-              {busy === 'create' ? t('generatingPlan') : t('generatePlan')}
-            </button>
-              </>
-            )}
-          </div>
+          <TaskDraftEditor
+            activeManagerReport={activeManagerReport}
+            advancedOpen={advancedOpen}
+            busy={busy}
+            callableAgents={callableAgents}
+            tasks={tasks}
+            t={t}
+            validationErrors={validationErrors}
+            onAddTask={() => setTasks((current) => [...current, newTask(current.length + 1, callableAgents[0]?.id)])}
+            onCreatePlan={() => void createPlan()}
+            onRemoveTask={(index) => setTasks((current) => current.filter((_, taskIndex) => taskIndex !== index))}
+            onSetInitialTask={() => setTasks([newTask(1, callableAgents[0]?.id)])}
+            onToggleAdvanced={() => setAdvancedOpen((current) => !current)}
+            onUpdateTask={updateTask}
+          />
 
           {plan && (
             <>
-              <div className="panel execution-plan" id="execution-plan">
-                <div className="panel-heading">
-                  <div><Waves size={18} /><strong>{t('stepExecution')}</strong><StatusPill status={plan.status} /></div>
-                  <div className="heading-actions">
-                    <button className={`ghost-button ${autoRun ? 'danger-button' : 'accent'}`} disabled={busy === 'wave' && !autoRun} onClick={toggleAutoRun}>
-                      {autoRun ? <CircleStop size={14} /> : <Zap size={14} />}{autoRun ? t('stopAutoRun') : t('autoRun')}
-                    </button>
-                    <button className="ghost-button accent" disabled={!launchableWaveTasks.length || busy === 'wave' || autoRun} onClick={() => void startCurrentWave()}>
-                      {busy === 'wave' ? <RefreshCw className="spin" size={14} /> : <Play size={14} />}{busy === 'wave' ? t('startingWave') : t('startWave')}
-                    </button>
-                    <button className="ghost-button" onClick={() => void refreshPlan()}><RefreshCw size={15} />{t('refresh')}</button>
-                  </div>
-                </div>
-                <div className="plan-overview">
-                  <div className="progress-card">
-                    <span>{t('currentProgress')}</span>
-                    <strong>{progress}%</strong>
-                    <div className="progress-track"><i style={{ width: `${progress}%` }} /></div>
-                    <small>{completedCount}/{plan.tasks.length} {t('taskComplete')}</small>
-                  </div>
-                  <div className="metric-card"><Waves size={16} /><span>{t('currentWave')}</span><strong>{currentWaveIndex >= 0 ? currentWaveIndex + 1 : plan.waves.length}</strong></div>
-                  <div className="metric-card"><ShieldCheck size={16} /><span>{t('boundaryStatus')}</span><strong className={plan.boundary_report.ok ? 'good-text' : 'bad-text'}>{plan.boundary_report.ok ? t('boundaryClean') : t('boundaryIssue')}</strong></div>
-                </div>
-                <div className="shared-log"><Activity size={16} /><span>{t('sharedPlan')}</span><code title={plan.shared_plan_path}>{plan.shared_plan_path}</code></div>
-                <div className="waves">
-                  {plan.waves.map((wave, waveIndex) => (
-                    <div className={`wave ${waveIndex === currentWaveIndex ? 'current' : ''}`} key={waveIndex}>
-                      <div className="wave-label"><span>WAVE {waveIndex + 1}</span><small>{wave.length > 1 ? t('parallel') : t('singleTask')}</small></div>
-                      <div className="wave-tasks">
-                        {wave.map((taskId) => {
-                          const task = plan.tasks.find((item) => item.task_id === taskId)!;
-                          const readiness = taskReadiness(task);
-                          const canStart = ['pending', 'failed', 'cancelled'].includes(task.status) && readiness !== t('blockedByDependency') && readiness !== t('blockedByWave');
-                          return (
-                            <article className={`plan-task ${task.status}`} key={taskId}>
-                              <div className="task-title"><Bot size={17} /><strong title={task.title || task.task_id}>{task.title || task.task_id}</strong><StatusPill status={task.status} /></div>
-                              <span>{agents.find((agent) => agent.id === task.agent_id)?.name || task.agent_id}</span>
-                              <div className="path-summary"><Eye size={13} />{task.read_paths.length} {t('read')} <FileCode2 size={13} />{task.write_paths.length} {t('write')}</div>
-                              <div className={`task-readiness ${canStart ? 'ready' : ''}`}><Clock3 size={12} /><span>{readiness}</span>{Boolean(task.attempts) && <small>{t('attempts')}: {task.attempts}</small>}</div>
-                              <div className="task-actions">
-                                <button onClick={() => { setSelectedActivityId(taskId); document.getElementById('agent-activity')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><Radio size={14} />{t('viewActivity')}</button>
-                                <button onClick={() => void copyPrompt(taskId)}><Clipboard size={14} />{t('copyTask')}</button>
-                                {task.status === 'running'
-                                  ? <button className="cancel-button" disabled={busy === `cancel-${taskId}`} onClick={() => void cancelTask(taskId)}><CircleStop size={14} />{t('cancel')}</button>
-                                  : <button className="start-button" disabled={busy === taskId || !canStart} onClick={() => void startTask(taskId)}><Play size={14} />{['failed', 'cancelled'].includes(task.status) ? t('retry') : t('start')}</button>}
-                              </div>
-                            </article>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {plan.conflicts.length > 0 && (
-                  <div className="conflicts">
-                    <strong><AlertTriangle size={16} />{t('conflictsIsolated')} · {plan.conflicts.length}</strong>
-                    {plan.conflicts.map((item) => <p key={`${item.left_task_id}-${item.right_task_id}`}><code>{item.left_task_id}</code> ↔ <code>{item.right_task_id}</code>: {item.reasons.join(' · ')}</p>)}
-                  </div>
-                )}
-                {!plan.boundary_report.ok && (
-                  <div className="boundary-violation">
-                    <strong><AlertTriangle size={16} />{t('undeclaredChanges')}</strong>
-                    <p>{plan.boundary_report.undeclared_changes.join(' · ')}</p>
-                  </div>
-                )}
-              </div>
+              <ExecutionPlanPanel
+                agents={agents}
+                autoRun={autoRun}
+                busy={busy}
+                completedCount={completedCount}
+                currentWaveIndex={currentWaveIndex}
+                launchableWaveTasks={launchableWaveTasks}
+                plan={plan}
+                progress={progress}
+                t={t}
+                taskReadiness={taskReadiness}
+                onCancelTask={(taskId) => void cancelTask(taskId)}
+                onCopyPrompt={(taskId) => void copyPrompt(taskId)}
+                onRefreshPlan={() => void refreshPlan()}
+                onSelectActivity={(taskId) => {
+                  setSelectedActivityId(taskId);
+                  document.getElementById('agent-activity')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                onStartCurrentWave={() => void startCurrentWave()}
+                onStartTask={(taskId) => void startTask(taskId)}
+                onToggleAutoRun={toggleAutoRun}
+                {...statusPillConfig}
+              />
 
               {resultReport && (
-                <div className="panel result-panel" id="result-report">
-                  <div className="panel-heading">
-                    <div>
-                      <FileCheck2 size={18} />
-                      <strong>{t('stepResult')}</strong>
-                      <span className={`status-pill ${resultReport.verdict === 'ready' ? 'good' : resultReport.verdict === 'in_progress' ? 'active' : 'bad'}`}>{verdictLabels[resultReport.verdict]}</span>
-                      <StatusPill status={resultReport.acceptance.status} />
-                    </div>
-                    <div className="heading-actions">
-                      <button className="ghost-button" disabled={busy === 'export'} onClick={() => void downloadResult()}><Download size={14} />{t('exportReport')}</button>
-                      <button className="ghost-button" disabled={hasRunningAgents || busy === 'archive'} onClick={() => void toggleArchivePlan()}><Archive size={14} />{plan.archived ? t('restorePlan') : t('archivePlan')}</button>
-                      <button className="ghost-button danger-button" disabled={hasRunningAgents || busy === 'delete'} onClick={() => void deletePlan()}><Trash2 size={14} />{t('deletePlan')}</button>
-                    </div>
-                  </div>
-                  <div className="result-overview">
-                    <div className={`result-verdict ${resultReport.ready_for_acceptance ? 'ready' : ''}`}>
-                      {resultReport.ready_for_acceptance ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
-                      <div><strong>{resultReport.ready_for_acceptance ? t('readyForAcceptance') : t('notReadyForAcceptance')}</strong><span>{nextActionLabels[resultReport.suggested_next_action]}</span></div>
-                    </div>
-                    <div className="result-metric"><span>{t('completedTasks')}</span><strong>{resultReport.summary.completed}/{resultReport.summary.total}</strong></div>
-                    <div className="result-metric"><span>{t('failedTasks')}</span><strong className={resultReport.summary.failed ? 'bad-text' : 'good-text'}>{resultReport.summary.failed}</strong></div>
-                    <div className="result-metric"><span>{t('changedFiles')}</span><strong>{resultReport.boundary_report.changed_paths.length}</strong></div>
-                  </div>
-                  <div className="result-details">
-                    <div className="result-list">
-                      <strong><CheckCircle2 size={14} />{t('acceptanceCriteria')}</strong>
-                      {(resultReport.acceptance_criteria.length ? resultReport.acceptance_criteria : [t('noAcceptanceCriteria')]).map((item) => <p key={item}>{item}</p>)}
-                    </div>
-                    <div className={`result-list ${resultReport.issues.length ? 'has-issues' : ''}`}>
-                      <strong><AlertTriangle size={14} />{t('issues')}</strong>
-                      {resultReport.issues.map((issue) => <p key={issue.code}><b>{issueLabels[issue.code] || issue.code}</b><span>{issue.items.join(' · ')}</span></p>)}
-                      {!resultReport.issues.length && <p><b>{t('noIssues')}</b></p>}
-                    </div>
-                  </div>
-                  <div className="task-results">
-                    <div className="activity-section-title"><ListChecks size={14} />{t('taskResults')}</div>
-                    <div>
-                      {resultReport.tasks.map((task) => (
-                        <article key={task.task_id}>
-                          <div><strong>{task.title || task.task_id}</strong><span>{task.task_id}</span></div>
-                          <StatusPill status={task.status} />
-                          <small>{t('attempts')}: {task.attempts} · {t('write')}: {task.write_paths.length}</small>
-                        </article>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="acceptance-box">
-                    <label>{t('acceptanceNote')}<textarea rows={3} value={acceptanceNote} onChange={(event) => setAcceptanceNote(event.target.value)} placeholder={t('acceptanceNotePlaceholder')} /></label>
-                    <div>
-                      <button className="ghost-button danger-button" disabled={hasRunningAgents || busy === 'acceptance'} onClick={() => void decideAcceptance(false)}><X size={15} />{t('rejectResult')}</button>
-                      <button className="primary-button" disabled={!resultReport.ready_for_acceptance || busy === 'acceptance'} onClick={() => void decideAcceptance(true)}><Check size={15} />{t('acceptResult')}</button>
-                    </div>
-                  </div>
-                </div>
+                <ResultReportPanel
+                  acceptanceNote={acceptanceNote}
+                  busy={busy}
+                  hasRunningAgents={hasRunningAgents}
+                  issueLabels={issueLabels}
+                  nextActionLabels={nextActionLabels}
+                  plan={plan}
+                  resultReport={resultReport}
+                  t={t}
+                  verdictLabels={verdictLabels}
+                  onDecideAcceptance={(accepted) => void decideAcceptance(accepted)}
+                  onDeletePlan={() => void deletePlan()}
+                  onDownloadResult={() => void downloadResult()}
+                  onSetAcceptanceNote={setAcceptanceNote}
+                  onToggleArchivePlan={() => void toggleArchivePlan()}
+                  {...statusPillConfig}
+                />
               )}
 
-              <div className="panel activity-center" id="agent-activity">
-                <div className="panel-heading">
-                  <div><Radio size={18} /><strong>{t('agentActivity')}</strong>{activity && <StatusPill status={activity.status} />}</div>
-                  <span>{t('publicOutputHint')}</span>
-                </div>
-                <div className="activity-tabs">
-                  {plan.tasks.map((task) => (
-                    <button className={selectedActivityId === task.task_id ? 'active' : ''} key={task.task_id} onClick={() => setSelectedActivityId(task.task_id)}>
-                      <Bot size={14} /><span>{task.title || task.task_id}</span><StatusPill status={task.status} />
-                    </button>
-                  ))}
-                  {plan.supervisor_agent_id && (
-                    <button className={selectedActivityId === '__supervisor__' ? 'active' : ''} onClick={() => setSelectedActivityId('__supervisor__')}>
-                      <ShieldCheck size={14} /><span>{t('supervisor')}</span><StatusPill status={plan.supervisor_run.status} />
-                    </button>
-                  )}
-                </div>
-                {activity ? (
-                  <div className="activity-layout">
-                    <div className="activity-brief">
-                      <div className="activity-section-title"><ListChecks size={14} />{t('taskBrief')}</div>
-                      <strong>{activity.title || t('supervisor')}</strong>
-                      {activity.instructions && <p>{activity.instructions}</p>}
-                      {!!activity.read_paths?.length && <div className="activity-paths"><span><Eye size={12} />{t('allowedRead')}</span>{activity.read_paths.map((path) => <code key={path}>{path}</code>)}</div>}
-                      {!!activity.write_paths?.length && <div className="activity-paths"><span><FileCode2 size={12} />{t('allowedWrite')}</span>{activity.write_paths.map((path) => <code key={path}>{path}</code>)}</div>}
-                      <small>{agents.find((agent) => agent.id === activity.agent_id)?.name || activity.agent_id}</small>
-                    </div>
-                    <div className="activity-output">
-                      <div className="activity-section-title"><Terminal size={14} />{t('publicOutput')}<i className={activity.status === 'running' ? 'live-dot' : ''} /></div>
-                      {activity.public_output ? <pre>{activity.public_output}</pre> : <div className="empty-state compact"><Terminal size={16} /><span>{t('noPublicOutput')}</span></div>}
-                      <div className="run-history">
-                        <div className="activity-section-title"><History size={13} />{t('runHistory')}</div>
-                        <div>
-                          {activity.run_history?.slice().reverse().map((run) => (
-                            <span key={run.attempt}><strong>{t('attempt').replace('{count}', String(run.attempt))}</strong><StatusPill status={run.status} /><small>{formatTime(run.finished_at || run.started_at || undefined)}</small></span>
-                          ))}
-                          {!activity.run_history?.length && <small>{t('noRunHistory')}</small>}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="message-stream">
-                      <div className="activity-section-title"><MessageSquare size={14} />{t('messages')}</div>
-                      <div className="message-list">
-                        {activity.events.slice().reverse().map((event) => (
-                          <article key={event.event_id}>
-                            <span>{eventLabels[event.type] || event.type}</span>
-                            {eventDetail(event) && <p>{eventDetail(event)}</p>}
-                            <time>{formatTime(event.created_at)}</time>
-                          </article>
-                        ))}
-                        {!activity.events.length && <div className="empty-state compact"><MessageSquare size={15} /><span>{t('noMessages')}</span></div>}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="empty-state"><Radio size={18} /><span>{t('noPublicOutput')}</span></div>
-                )}
-                <div className="message-composer">
-                  <select value={messageTarget} onChange={(event) => setMessageTarget(event.target.value)}>
-                    <option value="">{t('allAgents')}</option>
-                    {plan.tasks.map((task) => <option value={task.task_id} key={task.task_id}>{task.title || task.task_id}</option>)}
-                  </select>
-                  <textarea rows={2} value={messageContent} onChange={(event) => setMessageContent(event.target.value)} placeholder={t('messagePlaceholder')} />
-                  <button className="primary-button" disabled={!messageContent.trim() || busy === 'message'} onClick={() => void sendMessage()}><Send size={15} />{t('sendMessage')}</button>
-                </div>
-              </div>
+              <ActivityCenter
+                activity={activity}
+                agents={agents}
+                busy={busy}
+                eventDetail={eventDetail}
+                eventLabels={eventLabels}
+                formatTime={formatTime}
+                messageContent={messageContent}
+                messageTarget={messageTarget}
+                plan={plan}
+                selectedActivityId={selectedActivityId}
+                t={t}
+                onSendMessage={() => void sendMessage()}
+                onSetMessageContent={setMessageContent}
+                onSetMessageTarget={setMessageTarget}
+                onSetSelectedActivityId={setSelectedActivityId}
+                {...statusPillConfig}
+              />
 
-              <div className="panel supervisor-panel">
-                <div className="panel-heading">
-                  <div><ShieldCheck size={18} /><strong>{t('stepSupervisor')}</strong><StatusPill status={plan.supervisor_run.status} /></div>
-                  <div className="supervisor-actions">
-                    <button className="ghost-button" onClick={() => void copySupervisorPrompt()}><Clipboard size={15} />{t('copyContext')}</button>
-                    {plan.supervisor_run.status === 'running'
-                      ? <button className="ghost-button danger-button" disabled={busy === 'cancel-supervisor'} onClick={() => void cancelSupervisor()}><CircleStop size={15} />{t('cancel')}</button>
-                      : <button className="ghost-button accent" disabled={!plan.supervisor_agent_id || busy === 'supervisor'} onClick={() => void startSupervisor()}><Play size={15} />{t('startSupervisor')}</button>}
-                  </div>
-                </div>
-                <p>{t('supervisorDescription')}</p>
-                <div className="advice-box">
-                  <textarea rows={3} value={advice} onChange={(event) => setAdvice(event.target.value)} placeholder={t('advicePlaceholder')} />
-                  <button className="primary-button" disabled={!advice.trim() || busy === 'advice'} onClick={() => void sendAdvice()}><CheckCircle2 size={16} />{t('sendAdvice')}</button>
-                </div>
-                <div className="activity-heading"><Activity size={14} />{t('activity')}</div>
-                <div className="event-stream">
-                  {plan.events.slice(-8).reverse().map((event) => (
-                    <div key={event.event_id}><Activity size={13} /><span>{event.type}</span><time>{formatTime(event.created_at)}</time></div>
-                  ))}
-                  {!plan.events.length && <div className="empty-state compact"><Clock3 size={15} /><span>{t('noActivity')}</span></div>}
-                </div>
-              </div>
+              <SupervisorPanel
+                advice={advice}
+                busy={busy}
+                formatTime={formatTime}
+                plan={plan}
+                t={t}
+                onCancelSupervisor={() => void cancelSupervisor()}
+                onCopySupervisorPrompt={() => void copySupervisorPrompt()}
+                onSendAdvice={() => void sendAdvice()}
+                onSetAdvice={setAdvice}
+                onStartSupervisor={() => void startSupervisor()}
+                {...statusPillConfig}
+              />
             </>
           )}
         </section>
