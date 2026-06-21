@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { FlatList, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, View } from 'react-native';
 import { Backend } from '../../services/websocket';
 import { ChatMessage } from '../../store';
@@ -19,11 +19,32 @@ export function AgentThread({ backend, colors, copy, messages }: Props) {
   // Otherwise scrolling up to read history during a long streaming reply would
   // keep yanking them back down on every content-size change.
   const atBottomRef = useRef(true);
+  // Last content height we scrolled for. onContentSizeChange fires even when the
+  // height is unchanged (e.g. as a side effect of our own scrollToEnd), which
+  // created a scroll→layout→scroll feedback loop that looked like jitter at the
+  // bottom. Only scroll when the content actually grew.
+  const lastHeightRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+  }, []);
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
     const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
     atBottomRef.current = distanceFromBottom < 80;
+  };
+
+  const onContentSizeChange = (_w: number, h: number) => {
+    if (h <= lastHeightRef.current + 1) return; // not actually taller → ignore
+    lastHeightRef.current = h;
+    if (!atBottomRef.current) return;
+    if (rafRef.current != null) return; // a scroll is already queued
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      listRef.current?.scrollToEnd({ animated: false });
+    });
   };
 
   return (
@@ -38,9 +59,7 @@ export function AgentThread({ backend, colors, copy, messages }: Props) {
       contentContainerStyle={messages.length ? styles.threadList : styles.emptyList}
       onScroll={onScroll}
       scrollEventThrottle={100}
-      onContentSizeChange={() => {
-        if (atBottomRef.current) listRef.current?.scrollToEnd({ animated: false });
-      }}
+      onContentSizeChange={onContentSizeChange}
       windowSize={10}
       maxToRenderPerBatch={8}
       removeClippedSubviews

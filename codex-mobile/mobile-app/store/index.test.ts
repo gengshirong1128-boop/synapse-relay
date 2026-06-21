@@ -123,4 +123,22 @@ describe('startNewSession', () => {
     expect(s.activeSessionId).toBeNull();
     expect(s.composingNew).toBe(true);
   });
+
+  it('a session_list refresh must NOT pull a composing-new chat back to an old session', () => {
+    // Regression: tapping "new chat" then a relay session_list push re-selected
+    // the latest old session, so the blank thread vanished.
+    useAppStore.setState({
+      sessions: [],
+      activeSessionId: null,
+      composingNew: true,
+      activeBackend: 'codex',
+      codexTransportMode: 'bridge',
+    });
+    useAppStore.getState().mergeRemoteSessions([
+      { id: 'codex-thread:old', backend: 'codex', transportMode: 'bridge', lastActivity: 9999 },
+    ]);
+    const s = useAppStore.getState();
+    expect(s.activeSessionId).toBeNull();   // stayed on the blank new chat
+    expect(s.composingNew).toBe(true);
+  });
 });

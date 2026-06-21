@@ -313,7 +313,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       .filter(session => session.backend === s.activeBackend && (!session.transportMode || session.transportMode === mode))
       .sort((a, b) => b.lastActivity - a.lastActivity);
     const activeStillValid = !!s.activeSessionId && inScope.some(session => session.id === s.activeSessionId);
-    const activeSessionId = activeStillValid ? s.activeSessionId : (inScope[0]?.id ?? null);
+    // While the user is composing a brand-new chat, do NOT auto-pick a session —
+    // a session_list refresh (relay pushes these on connect) would otherwise
+    // yank them back into the latest old conversation the moment they tap "new".
+    const activeSessionId = s.composingNew
+      ? s.activeSessionId
+      : (activeStillValid ? s.activeSessionId : (inScope[0]?.id ?? null));
 
     return {
       sessions: merged.sort((a, b) => b.lastActivity - a.lastActivity),

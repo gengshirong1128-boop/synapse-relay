@@ -57,11 +57,20 @@ describe('AuthManager pairing code', () => {
     expect(auth.verifyPairingCodeDetailed(code)).toBe('invalid');
   });
 
+  it('stays valid within the 15-minute ttl', () => {
+    const auth = makeAuth();
+    const code = auth.generatePairingCode();
+
+    vi.advanceTimersByTime(14 * 60 * 1000);
+
+    expect(auth.verifyPairingCodeDetailed(code)).toBe('valid');
+  });
+
   it('returns expired after the ttl without sleeping', () => {
     const auth = makeAuth();
     const code = auth.generatePairingCode();
 
-    vi.advanceTimersByTime(3 * 60 * 1000 + 1);
+    vi.advanceTimersByTime(15 * 60 * 1000 + 1);
 
     expect(auth.verifyPairingCodeDetailed(code)).toBe('expired');
     expect(auth.verifyPairingCodeDetailed(code)).toBe('invalid');

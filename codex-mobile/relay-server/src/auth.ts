@@ -4,7 +4,11 @@ import { RelayConfig } from './config';
 
 export type PairingVerificationResult = 'valid' | 'invalid' | 'expired' | 'locked';
 
-const PAIRING_CODE_TTL_MS = 3 * 60 * 1000;
+// Pairing code lifetime. Needs to be long enough for the real flow: user reads
+// the code off the terminal, loads the app, types the address + code. 3 min was
+// too short (users hit "expired" mid-setup). 15 min balances usability vs. the
+// brute-force window (further bounded by MAX_PAIRING_ATTEMPTS lockout).
+const PAIRING_CODE_TTL_MS = 15 * 60 * 1000;
 const MAX_PAIRING_ATTEMPTS = 5;
 
 export class AuthManager {
