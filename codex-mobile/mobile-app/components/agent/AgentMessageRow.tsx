@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import Markdown from 'react-native-markdown-display';
+import type { RenderRules } from 'react-native-markdown-display';
 import { Backend } from '../../services/websocket';
 import { ChatMessage } from '../../store';
 import { ThemeColors } from '../../theme/colors';
+import { fontSize, fontWeight, radius, spacing } from '../../theme/tokens';
 import { AgentCopy, getToolPreview } from './agentUtils';
 
 type Props = {
@@ -29,7 +32,10 @@ function ThinkingRow({ msg, colors }: Pick<Props, 'msg' | 'colors'>) {
   return (
     <Pressable
       onPress={() => setExpanded(!expanded)}
-      style={[styles.thinkingRow, { backgroundColor: colors.thinkingBg, borderColor: colors.border }]}
+      style={({ pressed }) => [
+        styles.thinkingRow,
+        { backgroundColor: colors.thinkingBg, borderColor: colors.border, opacity: pressed ? 0.72 : 1 },
+      ]}
     >
       <View style={styles.thinkingHeader}>
         <Text style={[styles.thinkingLabel, { color: colors.textTertiary }]}>Thinking</Text>
@@ -107,59 +113,70 @@ function AgentRow({ msg, backend, colors, copy }: Props) {
   // we don't override — invisible on dark themes. So every text-bearing element
   // must get an explicit color from the theme.
   const mdStyles = {
-    body: { color: colors.assistantText, fontSize: 15, lineHeight: 23 },
-    paragraph: { color: colors.assistantText, marginTop: 0, marginBottom: 10 },
+    body: { color: colors.assistantText, fontSize: fontSize.bodyLg, lineHeight: fontSize.bodyLg + spacing.sm },
+    paragraph: { color: colors.assistantText, marginTop: 0, marginBottom: spacing.md },
     text: { color: colors.assistantText },
-    strong: { color: colors.assistantText, fontWeight: '700' as const },
+    strong: { color: colors.assistantText, fontWeight: fontWeight.bold },
     em: { color: colors.assistantText, fontStyle: 'italic' as const },
     s: { color: colors.assistantText },
     link: { color: colors.accent, textDecorationLine: 'underline' as const },
     blockquote: {
       backgroundColor: colors.thinkingBg,
       borderColor: colors.accent,
-      borderLeftWidth: 3,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      marginVertical: 4,
+      borderLeftWidth: StyleSheet.hairlineWidth,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      marginVertical: spacing.xs,
     },
-    bullet_list: { marginVertical: 4 },
-    ordered_list: { marginVertical: 4 },
-    list_item: { color: colors.assistantText, marginVertical: 2 },
+    bullet_list: { marginVertical: spacing.xs },
+    ordered_list: { marginVertical: spacing.xs },
+    list_item: { color: colors.assistantText, marginVertical: spacing.xs },
     bullet_list_icon: { color: colors.accent },
     ordered_list_icon: { color: colors.accent },
     code_inline: {
       backgroundColor: colors.codeBg,
       color: colors.codeText,
-      paddingHorizontal: 4,
-      borderRadius: 3,
-      fontSize: 13,
+      paddingHorizontal: spacing.xs,
+      borderRadius: radius.sm,
+      fontSize: fontSize.small,
     },
-    fence: {
-      backgroundColor: colors.codeBg,
-      color: colors.codeText,
-      borderColor: colors.border,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderRadius: 6,
-      padding: 10,
-    },
+    fence: { marginVertical: spacing.sm },
     code_block: {
       backgroundColor: colors.codeBg,
       color: colors.codeText,
-      fontSize: 12,
+      fontSize: fontSize.small,
       fontFamily: 'monospace',
     },
-    hr: { backgroundColor: colors.border, height: StyleSheet.hairlineWidth, marginVertical: 10 },
-    table: { borderColor: colors.border, borderWidth: StyleSheet.hairlineWidth, borderRadius: 4, marginVertical: 6 },
+    hr: { backgroundColor: colors.border, height: StyleSheet.hairlineWidth, marginVertical: spacing.md },
+    table: { borderColor: colors.border, borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.sm, marginVertical: spacing.sm },
     thead: { backgroundColor: colors.thinkingBg },
-    th: { color: colors.assistantText, padding: 6, fontWeight: '700' as const },
+    th: { color: colors.assistantText, padding: spacing.sm, fontWeight: fontWeight.bold },
     tr: { borderColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth },
-    td: { color: colors.assistantText, padding: 6 },
-    heading1: { color: colors.text, fontSize: 18, fontWeight: '700' as const, marginTop: 6, marginBottom: 4 },
-    heading2: { color: colors.text, fontSize: 16, fontWeight: '700' as const, marginTop: 6, marginBottom: 4 },
-    heading3: { color: colors.text, fontSize: 15, fontWeight: '700' as const, marginTop: 4, marginBottom: 2 },
-    heading4: { color: colors.text, fontSize: 15, fontWeight: '700' as const },
-    heading5: { color: colors.text, fontSize: 14, fontWeight: '700' as const },
-    heading6: { color: colors.text, fontSize: 14, fontWeight: '700' as const },
+    td: { color: colors.assistantText, padding: spacing.sm },
+    heading1: { color: colors.text, fontSize: fontSize.title, fontWeight: fontWeight.bold, marginTop: spacing.sm, marginBottom: spacing.xs },
+    heading2: { color: colors.text, fontSize: fontSize.bodyLg, fontWeight: fontWeight.bold, marginTop: spacing.sm, marginBottom: spacing.xs },
+    heading3: { color: colors.text, fontSize: fontSize.bodyLg, fontWeight: fontWeight.bold, marginTop: spacing.xs, marginBottom: 0 },
+    heading4: { color: colors.text, fontSize: fontSize.bodyLg, fontWeight: fontWeight.bold },
+    heading5: { color: colors.text, fontSize: fontSize.body, fontWeight: fontWeight.bold },
+    heading6: { color: colors.text, fontSize: fontSize.body, fontWeight: fontWeight.bold },
+  };
+  const mdRules: RenderRules = {
+    fence: (node) => (
+      <CodeBlock
+        key={node.key}
+        code={trimCode(node.content)}
+        language={codeLanguage(node)}
+        colors={colors}
+      />
+    ),
+    code_block: (node) => (
+      <CodeBlock
+        key={node.key}
+        code={trimCode(node.content)}
+        language="code"
+        colors={colors}
+      />
+    ),
   };
 
   return (
@@ -167,70 +184,152 @@ function AgentRow({ msg, backend, colors, copy }: Props) {
       <Text style={[styles.turnLabel, styles.agentLabel, { color: colors.textTertiary }]}>
         {backend === 'codex' ? copy.assistantLabel : 'Claude Code'}
       </Text>
-      <View style={[styles.agentBubble, { backgroundColor: colors.assistantBubbleBg, borderColor: colors.border }]}>
+      <View style={styles.agentContent}>
         {msg.isStreaming ? (
           <Text style={[styles.agentText, { color: colors.assistantText }]}>{msg.content}|</Text>
         ) : (
-          <Markdown style={mdStyles}>{msg.content}</Markdown>
+          <Markdown style={mdStyles} rules={mdRules}>{msg.content}</Markdown>
         )}
       </View>
     </View>
   );
 }
 
+function CodeBlock({ code, language, colors }: { code: string; language: string; colors: ThemeColors }) {
+  const [copied, setCopied] = useState(false);
+
+  const onCopy = () => {
+    void Clipboard.setStringAsync(code)
+      .then(() => setCopied(true))
+      .catch(() => setCopied(false));
+  };
+
+  // Reset the "已复制" label back to "复制" so a later glance doesn't look like
+  // a fresh copy just happened.
+  React.useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(t);
+  }, [copied]);
+
+  return (
+    <View style={[styles.codeBlock, { backgroundColor: colors.codeBg, borderColor: colors.border }]}>
+      <View style={[styles.codeBlockHeader, { borderBottomColor: colors.border }]}>
+        <Text style={[styles.codeLanguage, { color: colors.textTertiary }]} numberOfLines={1}>
+          {language}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onCopy}
+          style={({ pressed }) => [styles.copyButton, { opacity: pressed ? 0.6 : 1 }]}
+        >
+          <Text style={[styles.copyButtonText, { color: colors.textSecondary }]}>
+            {copied ? '已复制' : '复制'}
+          </Text>
+        </Pressable>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <Text style={[styles.codeText, { color: colors.codeText }]}>{code}</Text>
+      </ScrollView>
+    </View>
+  );
+}
+
+type CodeNode = {
+  content: string;
+  sourceInfo?: string;
+};
+
+function trimCode(code: string) {
+  return code.endsWith('\n') ? code.slice(0, -1) : code;
+}
+
+function codeLanguage(node: CodeNode) {
+  const info = node.sourceInfo?.trim();
+  if (!info) return 'code';
+  return info.split(/\s+/)[0] || 'code';
+}
+
 const styles = StyleSheet.create({
-  userTurn: { alignItems: 'flex-end', marginVertical: 6 },
+  userTurn: { alignItems: 'flex-end' },
   userBubble: {
     maxWidth: '82%',
-    borderRadius: 18,
-    borderBottomRightRadius: 5,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderRadius: radius.bubble,
+    borderBottomRightRadius: radius.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
-  userBubbleText: { fontSize: 15, lineHeight: 21 },
+  userBubbleText: { fontSize: fontSize.bodyLg, lineHeight: fontSize.bodyLg + spacing.sm },
   turnLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.4,
+    fontSize: fontSize.caption,
+    fontWeight: fontWeight.bold,
+    letterSpacing: 0,
     textTransform: 'uppercase',
-    marginBottom: 5,
+    marginBottom: spacing.xs,
   },
-  agentTurn: { alignItems: 'flex-start', marginVertical: 6 },
-  agentLabel: { marginLeft: 4, marginBottom: 4 },
-  agentBubble: {
-    maxWidth: '90%',
-    borderRadius: 18,
-    borderBottomLeftRadius: 5,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-  },
-  agentText: { fontSize: 15, lineHeight: 23 },
+  agentTurn: { alignItems: 'stretch' },
+  agentLabel: { marginLeft: spacing.xs },
+  agentContent: { alignSelf: 'stretch' },
+  agentText: { fontSize: fontSize.bodyLg, lineHeight: fontSize.bodyLg + spacing.sm },
   toolRow: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 8,
-    padding: 12,
-    marginVertical: 8,
+    borderRadius: radius.md,
+    padding: spacing.md,
   },
-  toolTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  toolLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
-  toolStatus: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
-  toolName: { fontSize: 14, fontWeight: '700', marginTop: 4 },
-  toolPreview: { fontSize: 12, lineHeight: 18, fontFamily: 'monospace', marginTop: 8 },
-  toolOutput: { fontSize: 12, lineHeight: 17, fontFamily: 'monospace', marginTop: 8, borderRadius: 6, padding: 9 },
-  toolMeta: { fontSize: 11, fontWeight: '700', marginTop: 7 },
-  systemRow: { alignItems: 'center', paddingVertical: 8 },
-  systemText: { fontSize: 12 },
+  toolTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  toolLabel: { fontSize: fontSize.caption, fontWeight: fontWeight.bold, textTransform: 'uppercase' },
+  toolStatus: { fontSize: fontSize.caption, fontWeight: fontWeight.heavy, textTransform: 'uppercase' },
+  toolName: { fontSize: fontSize.body, fontWeight: fontWeight.bold, marginTop: spacing.xs },
+  toolPreview: { fontSize: fontSize.small, lineHeight: fontSize.small + spacing.sm, fontFamily: 'monospace', marginTop: spacing.sm },
+  toolOutput: {
+    fontSize: fontSize.small,
+    lineHeight: fontSize.small + spacing.xs,
+    fontFamily: 'monospace',
+    marginTop: spacing.sm,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+  },
+  toolMeta: { fontSize: fontSize.caption, fontWeight: fontWeight.bold, marginTop: spacing.sm },
+  systemRow: { alignItems: 'center', paddingVertical: spacing.sm },
+  systemText: { fontSize: fontSize.small },
   thinkingRow: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 8,
-    padding: 10,
-    marginVertical: 6,
+    borderRadius: radius.md,
+    padding: spacing.md,
   },
-  thinkingHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  thinkingLabel: { fontSize: 12, fontWeight: '700', flex: 1 },
-  thinkingToggle: { fontSize: 12, fontWeight: '600' },
-  thinkingContent: { fontSize: 12, lineHeight: 17, marginTop: 6 },
+  thinkingHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  thinkingLabel: { fontSize: fontSize.small, fontWeight: fontWeight.bold, flex: 1 },
+  thinkingToggle: { fontSize: fontSize.small, fontWeight: fontWeight.medium },
+  thinkingContent: { fontSize: fontSize.small, lineHeight: fontSize.small + spacing.xs, marginTop: spacing.sm },
+  codeBlock: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.md,
+    marginVertical: spacing.sm,
+    overflow: 'hidden',
+  },
+  codeBlockHeader: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  codeLanguage: {
+    flex: 1,
+    fontSize: fontSize.caption,
+    fontWeight: fontWeight.bold,
+    textTransform: 'uppercase',
+  },
+  copyButton: { paddingHorizontal: spacing.xs, paddingVertical: spacing.xs },
+  copyButtonText: { fontSize: fontSize.caption, fontWeight: fontWeight.medium },
+  codeText: {
+    fontFamily: 'monospace',
+    fontSize: fontSize.small,
+    lineHeight: fontSize.small + spacing.sm,
+    padding: spacing.md,
+  },
 });
 
 function statusLabel(status: string) {

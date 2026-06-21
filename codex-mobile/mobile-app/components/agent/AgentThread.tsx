@@ -3,6 +3,7 @@ import { FlatList, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, Vi
 import { Backend } from '../../services/websocket';
 import { ChatMessage } from '../../store';
 import { ThemeColors } from '../../theme/colors';
+import { fontSize, fontWeight, spacing } from '../../theme/tokens';
 import { AgentCopy } from './agentUtils';
 import { AgentMessageRow } from './AgentMessageRow';
 
@@ -56,6 +57,7 @@ export function AgentThread({ backend, colors, copy, messages }: Props) {
       renderItem={({ item }) => (
         <AgentMessageRow msg={item} backend={backend} colors={colors} copy={copy} />
       )}
+      ItemSeparatorComponent={MessageSeparator}
       contentContainerStyle={messages.length ? styles.threadList : styles.emptyList}
       onScroll={onScroll}
       scrollEventThrottle={100}
@@ -65,6 +67,10 @@ export function AgentThread({ backend, colors, copy, messages }: Props) {
       removeClippedSubviews
     />
   );
+}
+
+function MessageSeparator() {
+  return <View style={styles.messageSeparator} />;
 }
 
 function EmptyThread({ copy, colors }: { copy: AgentCopy; colors: ThemeColors }) {
@@ -77,9 +83,10 @@ function EmptyThread({ copy, colors }: { copy: AgentCopy; colors: ThemeColors })
 }
 
 const styles = StyleSheet.create({
-  threadList: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
-  emptyList: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28 },
+  threadList: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.xxl },
+  emptyList: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: spacing.xxl },
+  messageSeparator: { height: spacing.xl },
   emptyThread: { alignItems: 'center' },
-  emptyTitle: { fontSize: 17, fontWeight: '800', textAlign: 'center' },
-  emptyBody: { fontSize: 14, lineHeight: 20, marginTop: 8, textAlign: 'center' },
+  emptyTitle: { fontSize: fontSize.title, fontWeight: fontWeight.heavy, textAlign: 'center' },
+  emptyBody: { fontSize: fontSize.body, lineHeight: fontSize.body + spacing.sm, marginTop: spacing.sm, textAlign: 'center' },
 });
